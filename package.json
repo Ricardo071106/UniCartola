@@ -13,6 +13,8 @@
   "scripts": {
     "dev": "npm run dev -w web",
     "build": "npm run build -w web",
+    "build:render": "npm install && npm run build -w web",
+    "start:render": "npm run db:migrate && npm run start -w web",
     "lint": "npm run lint -w web",
     "db:generate": "npm run generate -w @unicartola/db",
     "db:migrate": "npm run migrate -w @unicartola/db",

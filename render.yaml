@@ -1,0 +1,27 @@
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: unicartola
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build -w web
+    startCommand: npm run db:migrate && npm run start -w web
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: unicartola-db
+          property: connectionString
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: CRON_SECRET
+        generateValue: true
+
+databases:
+  - name: unicartola-db
+    plan: free
+    databaseName: unicartola
+    user: unicartola
