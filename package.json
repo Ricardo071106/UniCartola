@@ -17,7 +17,7 @@
     "dev": "npm run dev -w web",
     "build": "npm run build -w web",
     "start": "npm run start:prod",
-    "start:prod": "npm run db:migrate && sh -c '[ \"$RUN_DB_SEED\" = \"1\" ] && npm run db:seed || true' && npm run start -w web",
+    "start:prod": "sh -c 'if [ \"$SKIP_DB_MIGRATE\" = \"1\" ]; then echo \"[db] SKIP_DB_MIGRATE=1 — migrate ignorado\"; else npm run db:migrate; fi' && sh -c '[ \"$RUN_DB_SEED\" = \"1\" ] && npm run db:seed || true' && npm run start -w web",
     "lint": "npm run lint -w web",
     "db:generate": "npm run generate -w @unicartola/db",
     "db:migrate": "npm run migrate -w @unicartola/db",
