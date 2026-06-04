@@ -10,23 +10,13 @@ Plataforma de palpites e rankings para esporte universitário brasileiro (NDU �
 
 ## Deploy no Render
 
-**Build Command** (não rode migrate no build — o banco pode não estar acessível ainda):
+1. Crie um **PostgreSQL** no Render
+2. No **Web Service**, vincule o banco (**Environment** → **Add from database**)
+3. **Build Command:** `npm install && npm run build -w web`
+4. **Start Command:** `npm run start:prod`
+5. Após o primeiro deploy, no **Shell:** `npm run db:seed`
 
-```bash
-npm install && npm run build -w web
-```
-
-**Start Command** (migrate roda ao subir o servidor):
-
-```bash
-npm run db:migrate && npm run start -w web
-```
-
-Na primeira vez, abra o **Shell** do serviço e rode `npm run db:seed`.
-
-Ou use o blueprint [`render.yaml`](render.yaml) (Web Service + Postgres).
-
----
+Guia completo: [docs/deploy-render.md](docs/deploy-render.md)
 
 ## Setup rápido
 

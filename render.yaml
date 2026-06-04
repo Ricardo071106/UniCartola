@@ -1,11 +1,11 @@
-# https://render.com/docs/blueprint-spec
+# Render Blueprint — https://render.com/docs/blueprint-spec
 services:
   - type: web
     name: unicartola
     runtime: node
     plan: free
     buildCommand: npm install && npm run build -w web
-    startCommand: npm run db:migrate && npm run start -w web
+    startCommand: npm run start:prod
     envVars:
       - key: NODE_VERSION
         value: "20"
