@@ -1,4 +1,4 @@
-import { getDb } from "./client.js";
+import { getDb } from "./client";
 import {
   schools,
   courses,

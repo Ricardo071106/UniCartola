@@ -36,13 +36,17 @@ No Web Service → **Environment**:
 
 **Sem `DATABASE_URL` o deploy de build antigo falhava** porque rodava migrate no build. Agora migrate roda só no **start** (`start:prod`).
 
-### 4. Primeiro deploy
+### 4. Primeiro deploy (seed sem Shell)
 
-Depois que o serviço subir, abra **Shell** no Web Service e rode **uma vez**:
+No plano free o Shell pode não estar disponível. Use variável temporária:
 
-```bash
-npm run db:seed
-```
+| Variável | Valor |
+|----------|--------|
+| `RUN_DB_SEED` | `1` |
+
+Isso roda `npm run db:seed` uma vez no start. Depois que o app subir, **apague** `RUN_DB_SEED` e redeploy.
+
+Se tiver Shell: `npm run db:seed` manualmente.
 
 ### 5. Blueprint (opcional)
 
