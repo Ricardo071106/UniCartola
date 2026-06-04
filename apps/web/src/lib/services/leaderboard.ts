@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
   pointsLedger,
   userProfiles,
@@ -10,6 +10,7 @@ import { eq, sql, desc, and, isNull } from "drizzle-orm";
 type Scope = "global" | "school" | "course" | "athletic";
 
 export async function refreshLeaderboards(competitionId: string) {
+  const db = await getDb();
   const totals = await db
     .select({
       userId: pointsLedger.userId,
@@ -94,6 +95,7 @@ export async function getLeaderboard(
   scopeId?: string | null,
   limit = 50
 ) {
+  const db = await getDb();
   const conditions = [
     eq(leaderboardSnapshots.competitionId, competitionId),
     eq(leaderboardSnapshots.scope, scope),
@@ -123,6 +125,7 @@ export async function getLeaderboard(
 }
 
 export async function getActiveCompetition() {
+  const db = await getDb();
   const [comp] = await db
     .select()
     .from(competitions)

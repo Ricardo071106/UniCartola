@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { userProfiles } from "@unicartola/db/schema";
 import { eq } from "drizzle-orm";
 import { requireUserId, getCurrentUserId } from "@/lib/auth";
@@ -15,6 +15,7 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const db = await getDb();
     let userId = await getCurrentUserId();
     const body = schema.parse(await request.json());
 

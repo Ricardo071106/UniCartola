@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { getDb, type Database } from "@/lib/db";
 import {
   achievements,
   userAchievements,
@@ -10,7 +10,7 @@ import {
 import { eq, and, desc } from "drizzle-orm";
 import { scoreMatchPrediction } from "@/lib/scoring/match";
 
-async function grantAchievement(userId: string, code: string) {
+async function grantAchievement(db: Database, userId: string, code: string) {
   const [ach] = await db
     .select()
     .from(achievements)
@@ -27,6 +27,7 @@ async function grantAchievement(userId: string, code: string) {
 }
 
 export async function evaluateAchievementsForUser(userId: string, competitionId: string) {
+  const db = await getDb();
   const profile = await db
     .select()
     .from(userProfiles)
@@ -63,7 +64,7 @@ export async function evaluateAchievementsForUser(userId: string, competitionId:
     if (points >= 3) streak++;
     else break;
   }
-  if (streak >= 10) await grantAchievement(userId, "streak_10");
+  if (streak >= 10) await grantAchievement(db, userId, "streak_10");
 
   if (profile[0]) {
     const [schoolEntry] = await db
@@ -80,7 +81,7 @@ export async function evaluateAchievementsForUser(userId: string, competitionId:
       .limit(1);
 
     if (schoolEntry?.rank && schoolEntry.rank <= 10) {
-      await grantAchievement(userId, "school_top_10");
+      await grantAchievement(db, userId, "school_top_10");
     }
   }
 
@@ -97,11 +98,12 @@ export async function evaluateAchievementsForUser(userId: string, competitionId:
     .limit(1);
 
   if (globalEntry?.rank === 1) {
-    await grantAchievement(userId, "weekly_top");
+    await grantAchievement(db, userId, "weekly_top");
   }
 }
 
 export async function evaluateAllAchievements(competitionId: string) {
+  const db = await getDb();
   const users = await db.select({ id: userProfiles.id }).from(userProfiles);
   for (const { id } of users) {
     await evaluateAchievementsForUser(id, competitionId);

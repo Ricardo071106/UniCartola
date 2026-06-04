@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
   userProfiles,
   schools,
@@ -20,6 +20,7 @@ import { AchievementBadge } from "@/components/gamification/achievement-badge";
 export const dynamic = "force-dynamic";
 
 export default async function PerfilPage() {
+  const db = await getDb();
   const userId = await getCurrentUserId();
   if (!userId) redirect("/login");
 

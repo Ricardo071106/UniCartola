@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { statMarkets, statPredictions, modalities } from "@unicartola/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getActiveCompetition } from "@/lib/services/leaderboard";
@@ -9,6 +9,7 @@ import { StatPredictionForm } from "@/components/markets/stat-prediction-form";
 export const dynamic = "force-dynamic";
 
 export default async function MercadosPage() {
+  const db = await getDb();
   const comp = await getActiveCompetition();
   const userId = await getCurrentUserId();
 

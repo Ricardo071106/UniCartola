@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
   matches,
   matchPredictions,
@@ -11,6 +11,7 @@ import { scoreMatchPrediction, getActualOutcome } from "@/lib/scoring/match";
 import { refreshLeaderboards } from "./leaderboard";
 
 export async function processFinishedMatch(matchId: string) {
+  const db = await getDb();
   const [match] = await db.select().from(matches).where(eq(matches.id, matchId)).limit(1);
   if (!match || match.status !== "finished") return;
   if (match.homeScore == null || match.awayScore == null) return;
@@ -59,6 +60,7 @@ export async function processFinishedMatch(matchId: string) {
 }
 
 export async function resolveStatMarket(marketId: string) {
+  const db = await getDb();
   const [market] = await db
     .select()
     .from(statMarkets)
@@ -106,6 +108,7 @@ export async function resolveStatMarket(marketId: string) {
 }
 
 export async function processAllFinishedMatches() {
+  const db = await getDb();
   const finished = await db
     .select()
     .from(matches)

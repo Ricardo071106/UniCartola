@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { schools, courses, athletics, userProfiles } from "@unicartola/db/schema";
 import { getActiveCompetition, getLeaderboard } from "@/lib/services/leaderboard";
 import { LeaderboardTable } from "@/components/rankings/leaderboard-table";
@@ -13,6 +13,7 @@ export default async function RankingsPage({
 }: {
   searchParams: Promise<{ scope?: string; id?: string }>;
 }) {
+  const db = await getDb();
   const params = await searchParams;
   const scope = (params.scope ?? "global") as "global" | "school" | "course" | "athletic";
   const scopeId = params.id ?? null;

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { statMarkets, statPredictions } from "@unicartola/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireUserId } from "@/lib/auth";
@@ -16,6 +16,7 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const db = await getDb();
     const userId = await requireUserId();
     const body = schema.parse(await request.json());
 

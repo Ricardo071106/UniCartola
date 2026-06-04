@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { schools, userProfiles } from "@unicartola/db/schema";
 import { eq } from "drizzle-orm";
 import { getActiveCompetition, getLeaderboard } from "@/lib/services/leaderboard";
@@ -15,6 +15,7 @@ export default async function SchoolPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  const db = await getDb();
   const { slug } = await params;
   const [school] = await db.select().from(schools).where(eq(schools.slug, slug)).limit(1);
   if (!school) notFound();

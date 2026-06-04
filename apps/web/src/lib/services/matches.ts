@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
   matches,
   teams,
@@ -17,6 +17,7 @@ export async function getMatchesByStatus(
   statuses: ("scheduled" | "live" | "finished")[],
   limit = 20
 ) {
+  const db = await getDb();
   return db
     .select({
       match: matches,
@@ -39,6 +40,7 @@ export async function getMatchesByStatus(
 }
 
 export async function getMatchDetail(matchId: string) {
+  const db = await getDb();
   const rows = await db
     .select({
       match: matches,
@@ -57,6 +59,7 @@ export async function getMatchDetail(matchId: string) {
 }
 
 export async function getSchoolMatches(schoolId: string, competitionId: string, limit = 15) {
+  const db = await getDb();
   const schoolTeams = await db
     .select({ id: teams.id })
     .from(teams)
@@ -72,6 +75,7 @@ export async function getSchoolMatches(schoolId: string, competitionId: string, 
 }
 
 export async function getUserPrediction(userId: string, matchId: string) {
+  const db = await getDb();
   const [pred] = await db
     .select()
     .from(matchPredictions)

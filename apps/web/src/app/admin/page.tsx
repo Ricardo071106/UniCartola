@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { userProfiles, scrapeRuns, teamMappingQueue } from "@unicartola/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
@@ -9,6 +9,7 @@ import { AdminActions } from "@/components/admin/admin-actions";
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
+  const db = await getDb();
   const userId = await getCurrentUserId();
   if (!userId) redirect("/login");
 

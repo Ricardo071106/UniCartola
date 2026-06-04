@@ -1,4 +1,4 @@
-import { db } from "@unicartola/db/client";
+import { getDb, type Database } from "@unicartola/db/client";
 import {
   teams,
   matches,
@@ -7,8 +7,8 @@ import {
   scrapeRuns,
   teamMappingQueue,
 } from "@unicartola/db/schema";
-import { eq, and } from "drizzle-orm";
-import { parseGamesPage, parseNduDateLabel, normalizeTeamName, buildExternalKey, type ParsedMatchRow } from "./parser";
+import { eq } from "drizzle-orm";
+import { parseGamesPage, parseNduDateLabel, normalizeTeamName, buildExternalKey } from "./parser";
 
 const MVP_MODALITY_SLUGS = new Set([
   "futsal-masculino",
@@ -26,7 +26,7 @@ async function fetchHtml(url: string): Promise<string> {
   return res.text();
 }
 
-async function resolveTeam(rawName: string): Promise<string> {
+async function resolveTeam(db: Database, rawName: string): Promise<string> {
   const normalized = normalizeTeamName(rawName);
   const existing = await db
     .select()
@@ -50,17 +50,21 @@ async function resolveTeam(rawName: string): Promise<string> {
   return created.id;
 }
 
-async function getPlaceholderTeams(): Promise<{ homeId: string; awayId: string }> {
-  const home = await resolveTeam("Time A NDU");
-  const away = await resolveTeam("Time B NDU");
+async function getPlaceholderTeams(db: Database): Promise<{ homeId: string; awayId: string }> {
+  const home = await resolveTeam(db, "Time A NDU");
+  const away = await resolveTeam(db, "Time B NDU");
   return { homeId: home, awayId: away };
 }
 
-export async function syncModality(modality: typeof modalities.$inferSelect, year: number) {
+export async function syncModality(
+  db: Database,
+  modality: typeof modalities.$inferSelect,
+  year: number
+) {
   const url = modality.nduUrl ?? "https://www.ndu.net.br/jogos";
   const html = await fetchHtml(url);
   const rows = parseGamesPage(html, modality.name);
-  const { homeId, awayId } = await getPlaceholderTeams();
+  const { homeId, awayId } = await getPlaceholderTeams(db);
 
   let created = 0;
   let updated = 0;
@@ -120,6 +124,8 @@ export async function syncModality(modality: typeof modalities.$inferSelect, yea
 }
 
 export async function runFullScrape() {
+  const db = await getDb();
+
   const [run] = await db
     .insert(scrapeRuns)
     .values({ source: "ndu", status: "running" })
@@ -149,7 +155,7 @@ export async function runFullScrape() {
     for (const mod of mods) {
       if (!MVP_MODALITY_SLUGS.has(mod.slug)) continue;
       try {
-        const result = await syncModality(mod, year);
+        const result = await syncModality(db, mod, year);
         totalCreated += result.created;
         totalUpdated += result.updated;
       } catch (e) {

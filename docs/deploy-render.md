@@ -62,6 +62,6 @@ Seed:   npm run db:seed       # só uma vez, no Shell
 |------|--------|---------|
 | Build failed no `db:migrate` | Migrate no build sem `DATABASE_URL` | Use o Build Command acima (sem migrate) |
 | Build para em "Creating an optimized production build" | `NODE_ENV=production` no install pula Tailwind/TS (devDeps) | Build: `chmod +x scripts/render-build.sh && ./scripts/render-build.sh` |
-| `ENETUNREACH` ao iniciar (`db:migrate`) | `DATABASE_URL` aponta para IPv6 (External URL ou Supabase errado) | **Add from database** (Internal URL) ou Supabase Pooler porta **6543** |
+| `ENETUNREACH` ao iniciar (`db:migrate`) | `DATABASE_URL` External ou Supabase direto (IPv6) | **Apague** `DATABASE_URL` manual → **Add from database** (Internal). Não use URL copiada de fora do Render. |
 | App sobe mas páginas vazias | Seed não rodou | `npm run db:seed` no Shell |
 | Login não funciona | Falta Supabase | Preencha as duas vars `NEXT_PUBLIC_SUPABASE_*` |

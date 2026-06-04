@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { userProfiles } from "@unicartola/db/schema";
 import { eq } from "drizzle-orm";
 import { DEV_SESSION_COOKIE } from "@/lib/auth";
 
 export async function POST(request: Request) {
+  const db = await getDb();
   if (process.env.NODE_ENV !== "development") {
     return NextResponse.json({ error: "Not available" }, { status: 403 });
   }

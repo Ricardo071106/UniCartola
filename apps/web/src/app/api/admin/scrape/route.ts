@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireUserId } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { userProfiles } from "@unicartola/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function POST() {
   try {
+    const db = await getDb();
     const userId = await requireUserId();
     const [profile] = await db
       .select()

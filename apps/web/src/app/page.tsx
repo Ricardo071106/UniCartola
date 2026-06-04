@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { schools } from "@unicartola/db/schema";
 import { getActiveCompetition, getLeaderboard } from "@/lib/services/leaderboard";
 import { getMatchesByStatus } from "@/lib/services/matches";
@@ -13,6 +13,7 @@ import { FeedTracker } from "@/components/analytics/feed-tracker";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
+  const db = await getDb();
   const comp = await getActiveCompetition();
   const userId = await getCurrentUserId();
 

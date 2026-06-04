@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { matchPredictions, matches, modalities, teams } from "@unicartola/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/auth";
@@ -13,6 +13,7 @@ const awayTeam = alias(teams, "away");
 export const dynamic = "force-dynamic";
 
 export default async function PalpitesPage() {
+  const db = await getDb();
   const userId = await getCurrentUserId();
   if (!userId) {
     return <p className="text-center text-slate-500">Faça login para ver seus palpites.</p>;

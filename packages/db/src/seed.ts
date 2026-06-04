@@ -1,4 +1,4 @@
-import { db } from "./client.js";
+import { getDb } from "./client.js";
 import {
   schools,
   courses,
@@ -105,6 +105,7 @@ const achievementData = [
 ];
 
 async function seed() {
+  const db = await getDb();
   console.log("Seeding database...");
 
   for (const name of schoolData) {
