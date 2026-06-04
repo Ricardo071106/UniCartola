@@ -26,7 +26,9 @@ O build **não precisa** de banco. O banco é necessário só quando o app **ini
 
 No Web Service → **Environment**:
 
-1. **Add from database** → selecione o Postgres → isso cria `DATABASE_URL` automaticamente
+1. **Add from database** → selecione o Postgres → isso cria `DATABASE_URL` automaticamente  
+   - Use **Internal Database URL**, não External (External pode usar IPv6 e falhar com `ENETUNREACH`)
+2. Se o Postgres e o Web Service estão no **mesmo** Render, a Internal URL é a correta
 2. Adicione manualmente:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
@@ -59,6 +61,7 @@ Seed:   npm run db:seed       # só uma vez, no Shell
 | Erro | Causa | Solução |
 |------|--------|---------|
 | Build failed no `db:migrate` | Migrate no build sem `DATABASE_URL` | Use o Build Command acima (sem migrate) |
-| Build para em "Creating an optimized production build" | `NODE_ENV=production` no install pula Tailwind/TS (devDeps) | Build: `npm install --include=dev && ...` — **não** defina `NODE_ENV=production` nas env vars do Render |
+| Build para em "Creating an optimized production build" | `NODE_ENV=production` no install pula Tailwind/TS (devDeps) | Build: `chmod +x scripts/render-build.sh && ./scripts/render-build.sh` |
+| `ENETUNREACH` ao iniciar (`db:migrate`) | `DATABASE_URL` aponta para IPv6 (External URL ou Supabase errado) | **Add from database** (Internal URL) ou Supabase Pooler porta **6543** |
 | App sobe mas páginas vazias | Seed não rodou | `npm run db:seed` no Shell |
 | Login não funciona | Falta Supabase | Preencha as duas vars `NEXT_PUBLIC_SUPABASE_*` |
