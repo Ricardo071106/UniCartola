@@ -12,7 +12,7 @@ Plataforma de palpites e rankings para esporte universitário brasileiro (NDU �
 
 1. Crie um **PostgreSQL** no Render
 2. No **Web Service**, vincule o banco (**Environment** → **Add from database**)
-3. **Build Command:** `npm install && npm run build -w web`
+3. **Build Command:** `npm install --include=dev && npm run build -w web`
 4. **Start Command:** `npm run start:prod`
 5. Após o primeiro deploy, no **Shell:** `npm run db:seed`
 

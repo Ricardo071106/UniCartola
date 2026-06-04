@@ -18,7 +18,7 @@ O build **não precisa** de banco. O banco é necessário só quando o app **ini
 
 | Campo | Valor |
 |-------|--------|
-| **Build Command** | `npm install && npm run build -w web` |
+| **Build Command** | `npm install --include=dev && npm run build -w web` |
 | **Start Command** | `npm run start:prod` |
 | **Node** | `NODE_VERSION=20` |
 
@@ -59,5 +59,6 @@ Seed:   npm run db:seed       # só uma vez, no Shell
 | Erro | Causa | Solução |
 |------|--------|---------|
 | Build failed no `db:migrate` | Migrate no build sem `DATABASE_URL` | Use o Build Command acima (sem migrate) |
+| Build para em "Creating an optimized production build" | `NODE_ENV=production` no install pula Tailwind/TS (devDeps) | Build: `npm install --include=dev && ...` — **não** defina `NODE_ENV=production` nas env vars do Render |
 | App sobe mas páginas vazias | Seed não rodou | `npm run db:seed` no Shell |
 | Login não funciona | Falta Supabase | Preencha as duas vars `NEXT_PUBLIC_SUPABASE_*` |

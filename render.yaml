@@ -4,7 +4,7 @@ services:
     name: unicartola
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build -w web
+    buildCommand: npm install --include=dev && npm run build -w web
     startCommand: npm run start:prod
     envVars:
       - key: NODE_VERSION
