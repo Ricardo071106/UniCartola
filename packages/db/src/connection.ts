@@ -4,7 +4,26 @@ import postgres, { type Options } from "postgres";
 
 dns.setDefaultResultOrder("ipv4first");
 
+function buildFromSupabaseEnv(): string | undefined {
+  const password = process.env.SUPABASE_DB_PASSWORD?.trim();
+  const ref = process.env.SUPABASE_PROJECT_REF?.trim();
+  const host =
+    process.env.SUPABASE_POOLER_HOST?.trim() ??
+    (process.env.SUPABASE_REGION
+      ? `aws-0-${process.env.SUPABASE_REGION.trim()}.pooler.supabase.com`
+      : undefined);
+
+  if (!password || !ref || !host) return undefined;
+
+  const encoded = encodeURIComponent(password);
+  console.log(`[db] Montando URL a partir de SUPABASE_* (host: ${host}, user: postgres.${ref})`);
+  return `postgresql://postgres.${ref}:${encoded}@${host}:5432/postgres?sslmode=require`;
+}
+
 export function getConnectionString(): string | undefined {
+  const fromEnv = buildFromSupabaseEnv();
+  if (fromEnv) return fromEnv;
+
   const raw =
     process.env.DATABASE_URL ??
     (process.env.NODE_ENV === "production"
@@ -186,9 +205,12 @@ export function supabaseConnectionHelp(error?: unknown): string {
   if (msg.includes("password authentication failed")) {
     return `
 ❌ Senha incorreta
-→ Supabase → Database → Reset database password
-→ Se a senha tem @ # % etc., use URL encode na senha (@ → %40)
-→ Cole a URI nova do Session pooler no DATABASE_URL
+→ Supabase → Database → Reset database password (sem @ # % na senha)
+→ No Render, use variáveis separadas (evita encoding):
+    SUPABASE_PROJECT_REF=seu_ref
+    SUPABASE_POOLER_HOST=aws-1-us-west-2.pooler.supabase.com
+    SUPABASE_DB_PASSWORD=senha_nova
+→ Apague DATABASE_URL antiga se usar SUPABASE_DB_PASSWORD
 `.trim();
   }
 
