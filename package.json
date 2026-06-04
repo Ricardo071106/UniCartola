@@ -1,0 +1,24 @@
+{
+  "name": "unicartola",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "workers/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w web",
+    "build": "npm run build -w web",
+    "lint": "npm run lint -w web",
+    "db:generate": "npm run generate -w @unicartola/db",
+    "db:migrate": "npm run migrate -w @unicartola/db",
+    "db:seed": "npm run seed -w @unicartola/db",
+    "db:studio": "npm run studio -w @unicartola/db",
+    "scraper": "npm run start -w @unicartola/scraper",
+    "scraper:run": "npm run run-once -w @unicartola/scraper"
+  }
+}
