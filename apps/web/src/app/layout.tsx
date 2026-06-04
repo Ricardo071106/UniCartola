@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/layout/nav";
-import { PostHogProvider } from "@/components/analytics/posthog-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Unicartola — Palpites Universitários",
+  title: "Campus League — Fantasy Universitário",
   description:
-    "Palpites, rankings e estatísticas do esporte universitário brasileiro. NDU, futsal, futebol e basquete.",
+    "Palpites, rankings e estatísticas do esporte universitário brasileiro. Represente sua faculdade.",
 };
 
 export default function RootLayout({
@@ -27,11 +26,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col pb-16 sm:pb-0">
-        <PostHogProvider>
-          <Nav />
-          <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>
-        </PostHogProvider>
+      <body className="min-h-full bg-white pb-20 lg:pb-0 lg:pl-[var(--sidebar-width)]">
+        <Nav />
+        <main className="mx-auto w-full max-w-content flex-1 px-4 py-6 lg:px-8">{children}</main>
       </body>
     </html>
   );

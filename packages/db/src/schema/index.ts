@@ -6,3 +6,7 @@ export * from "./predictions";
 export * from "./gamification";
 export * from "./leaderboard";
 export * from "./scrape";
+export * from "./community";
+export * from "./notifications";
+export * from "./match-stats";
+export * from "./import-queues";

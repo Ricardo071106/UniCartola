@@ -53,7 +53,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (process.env.NODE_ENV === "development") {
-    const devUser = request.cookies.get("unicartola_dev_user");
+    const devUser = request.cookies.get("campus_league_dev_user");
     if (!devUser && !pathname.startsWith("/login")) {
       return NextResponse.redirect(new URL("/login", request.url));
     }

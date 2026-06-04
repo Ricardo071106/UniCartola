@@ -1,82 +1,77 @@
-# Unicartola
+# Campus League
 
-Plataforma de palpites e rankings para esporte universitário brasileiro (NDU — futsal, futebol, basquete).
+Plataforma de fantasy esportivo universitário e palpites focada em campeonatos universitários brasileiros.
+
+**Não é uma casa de apostas.** É engajamento esportivo universitário inspirado em Cartola, SofaScore e ESPN.
 
 ## Stack
 
-- **apps/web** — Next.js 16, Tailwind, Supabase Auth (opcional)
-- **packages/db** — Drizzle ORM + PostgreSQL
-- **workers/scraper** — Ingestão NDU (cheerio)
+- **Frontend:** Next.js 15, TypeScript, TailwindCSS, Shadcn-style UI, Lucide Icons
+- **Backend:** Supabase Auth + API Routes
+- **Banco:** PostgreSQL (Supabase) via Drizzle ORM
+- **Deploy:** Vercel
 
-## Deploy no Render
+## Estrutura
 
-1. Crie um **PostgreSQL** no Render
-2. No **Web Service**, vincule o banco (**Environment** → **Add from database**)
-3. **Build Command:** `chmod +x scripts/render-build.sh && ./scripts/render-build.sh`
-4. **Start Command:** `npm run start:prod`
-5. Após o primeiro deploy, no **Shell:** `npm run db:seed`
+```
+apps/web/          → Next.js app (Campus League)
+packages/db/       → Schema Drizzle, migrations, seed
+workers/scraper/   → Arquitetura preparada para importação futura
+```
 
-Guia completo: [docs/deploy-render.md](docs/deploy-render.md)
+## Páginas
 
-## Setup rápido
+| Rota | Descrição |
+|------|-----------|
+| `/` | Home — banner, jogos do dia, rankings, destaques |
+| `/jogos` | Lista de jogos com filtros |
+| `/jogos/[id]` | Detalhe do jogo, stats, palpite |
+| `/rankings` | Rankings geral, semanal, histórico, faculdade, curso, atlética |
+| `/comunidade` | Feed social universitário |
+| `/perfil` | Perfil, conquistas, notificações |
+| `/onboarding` | Cadastro em 5 etapas |
+
+## Dados mockados
+
+O MVP inclui dados fictícios completos (20 faculdades, 100 usuários, 200 jogos) via `apps/web/src/lib/mock/generator.ts`. Funciona imediatamente sem banco configurado.
+
+Para popular o PostgreSQL:
 
 ```bash
-# 1. Banco local
-docker compose up -d
-
-# 2. Variáveis
 cp .env.example .env
+# Configure DATABASE_URL
 
-# 3. Instalar e migrar
 npm install
 npm run db:migrate
 npm run db:seed
-
-# 4. App
 npm run dev
-```
-
-Acesse [http://localhost:3000](http://localhost:3000). Em desenvolvimento, use **Entrar como dev** em `/login` e complete o cadastro em `/cadastro`.
-
-## Scripts
-
-| Comando | Descrição |
-|---------|-----------|
-| `npm run dev` | Next.js dev server |
-| `npm run db:migrate` | Aplica migrations |
-| `npm run db:seed` | Faculdades, competição NDU, mercados, jogos demo |
-| `npm run scraper:run` | Scrape único da NDU |
-| `npm run scraper` | Worker contínuo (intervalo configurável) |
-
-## Scraper NDU
-
-Fontes: [ndu.net.br/jogos](https://www.ndu.net.br/jogos) e páginas por modalidade.
-
-```bash
-npm run scraper:run
-```
-
-Ou via admin (`is_admin = true` no perfil) em `/admin`, ou cron:
-
-```bash
-curl -X POST http://localhost:3000/api/cron/scrape \
-  -H "Authorization: Bearer $CRON_SECRET"
 ```
 
 ## Pontuação
 
-- Vencedor correto: **+3**
-- Placar exato: **+5**
-- Vencedor + placar: **+8**
-- Mercados (artilheiro/pontuador): **+15**
+| Resultado | Pontos |
+|-----------|--------|
+| Acertou vencedor | +3 |
+| Acertou placar exato | +5 |
+| Acertou ambos | +8 |
+| Errou | 0 |
 
-## Admin
+## Identidade visual
 
-```sql
-UPDATE user_profiles SET is_admin = true WHERE display_name = 'Seu Apelido';
-```
+- Fundo branco, tons neutros
+- Azul escuro (`#1e3a5f`) para destaque
+- Verde apenas para resultados positivos
+- Mobile-first com menu inferior; sidebar fixa no desktop
 
-## Documentação
+## Deploy (Vercel)
 
-- [docs/data-sources.md](docs/data-sources.md) — URLs e parsing NDU
-- [docs/scoring.md](docs/scoring.md) — Regras de pontuação
+1. Conecte o repositório na Vercel
+2. Configure `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+3. Build command: `npm run build`
+4. Root directory: `/`
+
+## Arquitetura futura
+
+- `matches_import_queue` — fila para importação de jogos
+- `statistics_import_queue` — fila para estatísticas
+- `workers/scraper` — scraping NDU (não implementado no MVP)

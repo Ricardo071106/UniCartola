@@ -1,9 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-type Item = { id: string; name: string; slug: string };
+type Item = { id: string; name: string; slug?: string };
+
+const scopes = [
+  { key: "global", label: "Geral" },
+  { key: "weekly", label: "Semanal" },
+  { key: "historical", label: "Histórico" },
+  { key: "school", label: "Faculdade" },
+  { key: "course", label: "Curso" },
+  { key: "athletic", label: "Atlética" },
+] as const;
 
 export function RankingsTabs({
   currentScope,
@@ -13,17 +23,20 @@ export function RankingsTabs({
   athletics,
 }: {
   currentScope: string;
-  currentId: string | null;
+  currentId?: string | null;
   schools: Item[];
   courses: Item[];
   athletics: Item[];
 }) {
-  const tabs = [
-    { scope: "global", label: "Geral" },
-    { scope: "school", label: "Faculdade" },
-    { scope: "course", label: "Curso" },
-    { scope: "athletic", label: "Atlética" },
-  ];
+  const searchParams = useSearchParams();
+
+  function buildHref(scope: string, id?: string | null) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("scope", scope);
+    if (id) params.set("id", id);
+    else params.delete("id");
+    return `/rankings?${params.toString()}`;
+  }
 
   const filterItems =
     currentScope === "school"
@@ -36,34 +49,34 @@ export function RankingsTabs({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        {tabs.map((t) => (
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {scopes.map((s) => (
           <Link
-            key={t.scope}
-            href={`/rankings?scope=${t.scope}`}
+            key={s.key}
+            href={buildHref(s.key)}
             className={cn(
-              "rounded-full px-4 py-2 text-sm font-medium",
-              currentScope === t.scope
-                ? "bg-emerald-600 text-white"
-                : "bg-slate-100 text-slate-600 dark:bg-slate-800"
+              "shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+              currentScope === s.key
+                ? "bg-accent text-white"
+                : "bg-muted text-muted-foreground hover:text-foreground"
             )}
           >
-            {t.label}
+            {s.label}
           </Link>
         ))}
       </div>
 
-      {filterItems.length > 0 && currentScope !== "global" && (
-        <div className="flex flex-wrap gap-2">
-          {filterItems.map((item) => (
+      {filterItems.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {filterItems.slice(0, 12).map((item) => (
             <Link
               key={item.id}
-              href={`/rankings?scope=${currentScope}&id=${item.id}`}
+              href={buildHref(currentScope, item.id)}
               className={cn(
-                "rounded-lg border px-3 py-1 text-xs",
+                "shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
                 currentId === item.id
-                  ? "border-emerald-600 text-emerald-700"
-                  : "border-slate-200 text-slate-500"
+                  ? "border-accent bg-accent/5 text-accent"
+                  : "border-border text-muted-foreground hover:border-accent/30"
               )}
             >
               {item.name}

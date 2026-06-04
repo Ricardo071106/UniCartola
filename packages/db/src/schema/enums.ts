@@ -26,6 +26,8 @@ export const leaderboardScopeEnum = pgEnum("leaderboard_scope", [
   "school",
   "course",
   "athletic",
+  "weekly",
+  "historical",
 ]);
 
 export const statMarketStatusEnum = pgEnum("stat_market_status", [

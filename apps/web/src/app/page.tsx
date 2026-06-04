@@ -1,75 +1,89 @@
 import Link from "next/link";
-import { getDb } from "@/lib/db";
-import { schools } from "@unicartola/db/schema";
-import { getActiveCompetition, getLeaderboard } from "@/lib/services/leaderboard";
-import { getMatchesByStatus } from "@/lib/services/matches";
 import { MatchCard } from "@/components/matches/match-card";
-import { LeaderboardTable } from "@/components/rankings/leaderboard-table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getCurrentUserId } from "@/lib/auth";
-import { getUserPrediction } from "@/lib/services/matches";
-import { FeedTracker } from "@/components/analytics/feed-tracker";
+import { RankingTable } from "@/components/rankings/ranking-table";
+import { UniversityCard } from "@/components/universities/university-card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
+import { Flame } from "lucide-react";
+import {
+  getFeaturedMatch,
+  getMatchesByStatus,
+  getTodayMatches,
+  getLeaderboard,
+  getUniversityRankings,
+  getStreakHighlights,
+  getCompetition,
+  getUserPrediction,
+  DEMO_USER_ID,
+} from "@/lib/data";
 
-export const dynamic = "force-dynamic";
+export default function HomePage() {
+  const competition = getCompetition();
+  const featured = getFeaturedMatch();
+  const todayMatches = getTodayMatches(8);
+  const liveMatches = getMatchesByStatus(["live"], 5);
+  const upcoming = getMatchesByStatus(["scheduled"], 6);
+  const topUsers = getLeaderboard("global", null, 10);
+  const topSchools = getUniversityRankings(5);
+  const streaks = getStreakHighlights(5);
 
-export default async function HomePage() {
-  const db = await getDb();
-  const comp = await getActiveCompetition();
-  const userId = await getCurrentUserId();
-
-  if (!comp) {
-    return (
-      <div className="text-center py-12">
-        <h1 className="text-2xl font-bold">Unicartola</h1>
-        <p className="mt-2 text-slate-500">
-          Configure o banco e execute <code className="text-sm">npm run db:migrate && npm run db:seed</code>
-        </p>
-      </div>
-    );
-  }
-
-  const [upcoming, live, finished, leaderboard, schoolList] = await Promise.all([
-    getMatchesByStatus(comp.id, ["scheduled"], 8),
-    getMatchesByStatus(comp.id, ["live"], 5),
-    getMatchesByStatus(comp.id, ["finished"], 8),
-    getLeaderboard(comp.id, "global", null, 5),
-    db.select().from(schools).limit(8),
-  ]);
-
-  const predictionsMap = new Map<string, { outcome: string }>();
-  if (userId) {
-    for (const m of [...upcoming, ...live]) {
-      const pred = await getUserPrediction(userId, m.match.id);
-      if (pred) predictionsMap.set(m.match.id, { outcome: pred.outcome });
-    }
-  }
+  const demoPredictions = new Map(
+    [...liveMatches, ...upcoming, ...todayMatches].map((m) => {
+      const pred = getUserPrediction(DEMO_USER_ID, m.id);
+      return [m.id, pred ? { outcome: pred.outcome } : null] as const;
+    })
+  );
 
   return (
     <div className="space-y-8">
-      <FeedTracker />
-
       <section>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-          Esporte universitário
-        </h1>
-        <p className="text-slate-500">{comp.name} — Palpites e rankings</p>
+        <p className="text-sm font-medium text-muted-foreground">{competition.name}</p>
+        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Campus League</h1>
       </section>
 
-      {live.length > 0 && (
+      {featured && (
+        <section className="overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-accent to-[#2d5a8a] p-6 text-white">
+          <Badge variant="secondary" className="mb-3 bg-white/20 text-white">
+            Próximo jogo importante
+          </Badge>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-white/80">{featured.modalityName}</p>
+              <h2 className="mt-1 text-2xl font-bold">
+                {featured.homeTeamName} x {featured.awayTeamName}
+              </h2>
+              <p className="mt-1 text-sm text-white/70">
+                {featured.scheduledAt.toLocaleDateString("pt-BR", {
+                  weekday: "long",
+                  day: "2-digit",
+                  month: "long",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+            </div>
+            <Link
+              href={`/jogos/${featured.id}`}
+              className="inline-flex h-10 items-center justify-center rounded-lg bg-white px-4 text-sm font-medium text-accent hover:bg-white/90"
+            >
+              Dar Palpite
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {liveMatches.length > 0 && (
         <section>
-          <h2 className="mb-3 text-lg font-semibold flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
             Ao vivo
           </h2>
           <div className="space-y-3">
-            {live.map((m) => (
+            {liveMatches.map((m) => (
               <MatchCard
-                key={m.match.id}
-                match={m.match}
-                modalityName={m.modality.name}
-                homeTeamName={m.homeTeamName}
-                awayTeamName={m.awayTeamName}
-                userPrediction={predictionsMap.get(m.match.id)}
+                key={m.id}
+                match={m}
+                userPrediction={demoPredictions.get(m.id)}
               />
             ))}
           </div>
@@ -77,86 +91,61 @@ export default async function HomePage() {
       )}
 
       <section>
-        <h2 className="mb-3 text-lg font-semibold">Próximas partidas</h2>
-        {upcoming.length === 0 ? (
-          <p className="text-sm text-slate-500">Nenhuma partida agendada. Execute o scraper NDU.</p>
-        ) : (
-          <div className="space-y-3">
-            {upcoming.map((m) => (
-              <MatchCard
-                key={m.match.id}
-                match={m.match}
-                modalityName={m.modality.name}
-                homeTeamName={m.homeTeamName}
-                awayTeamName={m.awayTeamName}
-                userPrediction={predictionsMap.get(m.match.id)}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <section>
-          <h2 className="mb-3 text-lg font-semibold">Resultados recentes</h2>
-          <div className="space-y-3">
-            {finished.slice(0, 5).map((m) => (
-              <MatchCard
-                key={m.match.id}
-                match={m.match}
-                modalityName={m.modality.name}
-                homeTeamName={m.homeTeamName}
-                awayTeamName={m.awayTeamName}
-              />
-            ))}
-          </div>
-        </section>
-
-        <LeaderboardTable
-          title="Ranking geral"
-          entries={leaderboard.map((e) => ({
-            rank: e.rank,
-            displayName: e.displayName,
-            totalPoints: e.totalPoints,
-            matchPoints: e.matchPoints,
-            statPoints: e.statPoints,
-          }))}
-        />
-      </div>
-
-      <section>
-        <h2 className="mb-3 text-lg font-semibold">Faculdades</h2>
-        <div className="flex flex-wrap gap-2">
-          {schoolList.map((s) => (
-            <Link
-              key={s.id}
-              href={`/faculdades/${s.slug}`}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium hover:border-emerald-500 dark:border-slate-700 dark:bg-slate-900"
-            >
-              {s.shortName ?? s.name}
-            </Link>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Jogos do dia</h2>
+          <Link href="/jogos" className="text-sm font-medium text-accent hover:underline">
+            Ver todos
+          </Link>
+        </div>
+        <div className="space-y-3">
+          {(todayMatches.length ? todayMatches : upcoming.slice(0, 6)).map((m) => (
+            <MatchCard
+              key={m.id}
+              match={m}
+              userPrediction={demoPredictions.get(m.id)}
+              compact
+            />
           ))}
         </div>
       </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Notícias NDU</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-slate-500">
-            Acompanhe as novidades em{" "}
-            <a
-              href="https://www.ndu.net.br/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-emerald-600 hover:underline"
+      <div className="grid gap-6 lg:grid-cols-2">
+        <RankingTable title="Ranking rápido — Top 10" entries={topUsers} showAccuracy />
+
+        <section>
+          <h2 className="mb-3 text-lg font-semibold">Ranking das faculdades</h2>
+          <div className="space-y-2">
+            {topSchools.map((school) => (
+              <UniversityCard key={school.id} university={school} compact />
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <section>
+        <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+          <Flame className="h-5 w-5 text-orange-500" />
+          Destaques — sequência de acertos
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {streaks.map((s) => (
+            <div
+              key={s.userId}
+              className="flex items-center gap-3 rounded-lg border border-border p-3"
             >
-              ndu.net.br
-            </a>
-          </p>
-        </CardContent>
-      </Card>
+              <Avatar name={s.displayName} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">{s.displayName}</p>
+                <p className="text-xs text-muted-foreground">{s.schoolName}</p>
+              </div>
+              <div className="flex items-center gap-1 text-orange-600">
+                <Flame className="h-4 w-4" />
+                <span className="text-sm font-bold">{s.streak}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

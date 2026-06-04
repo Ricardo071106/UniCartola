@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { createClient } from "./supabase/server";
 
-export const DEV_SESSION_COOKIE = "unicartola_dev_user";
+export const DEV_SESSION_COOKIE = "campus_league_dev_user";
 
 export async function getCurrentUserId(): Promise<string | null> {
   const supabase = await createClient();

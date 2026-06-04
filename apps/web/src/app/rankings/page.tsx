@@ -1,76 +1,69 @@
-import { getDb } from "@/lib/db";
-import { schools, courses, athletics, userProfiles } from "@unicartola/db/schema";
-import { getActiveCompetition, getLeaderboard } from "@/lib/services/leaderboard";
-import { LeaderboardTable } from "@/components/rankings/leaderboard-table";
-import { getCurrentUserId } from "@/lib/auth";
-import { eq } from "drizzle-orm";
+import { Suspense } from "react";
+import { RankingTable } from "@/components/rankings/ranking-table";
 import { RankingsTabs } from "@/components/rankings/rankings-tabs";
-
-export const dynamic = "force-dynamic";
+import {
+  getLeaderboard,
+  getUniversities,
+  getCourses,
+  getAthletics,
+  getDemoUser,
+} from "@/lib/data";
 
 export default async function RankingsPage({
   searchParams,
 }: {
   searchParams: Promise<{ scope?: string; id?: string }>;
 }) {
-  const db = await getDb();
   const params = await searchParams;
-  const scope = (params.scope ?? "global") as "global" | "school" | "course" | "athletic";
-  const scopeId = params.id ?? null;
+  const scope = (params.scope ?? "global") as
+    | "global"
+    | "school"
+    | "course"
+    | "athletic"
+    | "weekly"
+    | "historical";
 
-  const comp = await getActiveCompetition();
-  if (!comp) return <p>Nenhuma competição ativa.</p>;
+  const demoUser = getDemoUser();
+  let scopeId = params.id ?? null;
 
-  const userId = await getCurrentUserId();
-  let effectiveScopeId = scopeId;
+  if (scope === "school" && !scopeId) scopeId = demoUser.schoolId;
+  if (scope === "course" && !scopeId) scopeId = demoUser.courseId;
+  if (scope === "athletic" && !scopeId) scopeId = demoUser.athleticId;
 
-  if (userId && scope !== "global" && !effectiveScopeId) {
-    const [profile] = await db
-      .select()
-      .from(userProfiles)
-      .where(eq(userProfiles.id, userId))
-      .limit(1);
-    if (profile) {
-      if (scope === "school") effectiveScopeId = profile.schoolId;
-      if (scope === "course") effectiveScopeId = profile.courseId;
-      if (scope === "athletic") effectiveScopeId = profile.athleticId;
-    }
-  }
-
-  const entries = await getLeaderboard(comp.id, scope, effectiveScopeId, 30);
-
-  const [schoolRows, courseRows, athleticRows] = await Promise.all([
-    db.select().from(schools),
-    db.select().from(courses),
-    db.select().from(athletics),
-  ]);
+  const entries = getLeaderboard(scope, scopeId, 30);
 
   const scopeTitles: Record<string, string> = {
     global: "Ranking geral",
-    school: "Por faculdade",
-    course: "Por curso",
-    athletic: "Por atlética",
+    school: "Ranking por faculdade",
+    course: "Ranking por curso",
+    athletic: "Ranking por atlética",
+    weekly: "Ranking semanal",
+    historical: "Ranking histórico",
   };
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Rankings</h1>
-      <RankingsTabs
-        currentScope={scope}
-        currentId={effectiveScopeId}
-        schools={schoolRows}
-        courses={courseRows}
-        athletics={athleticRows}
-      />
-      <LeaderboardTable
+      <div>
+        <h1 className="text-2xl font-bold">Rankings</h1>
+        <p className="text-sm text-muted-foreground">
+          Usuário vs usuário · Faculdade vs faculdade · Atlética vs atlética
+        </p>
+      </div>
+
+      <Suspense fallback={<div className="h-20 animate-pulse rounded-lg bg-muted" />}>
+        <RankingsTabs
+          currentScope={scope}
+          currentId={scopeId}
+          schools={getUniversities()}
+          courses={getCourses()}
+          athletics={getAthletics()}
+        />
+      </Suspense>
+
+      <RankingTable
         title={scopeTitles[scope] ?? "Ranking"}
-        entries={entries.map((e) => ({
-          rank: e.rank,
-          displayName: e.displayName,
-          totalPoints: e.totalPoints,
-          matchPoints: e.matchPoints,
-          statPoints: e.statPoints,
-        }))}
+        entries={entries}
+        showAccuracy
       />
     </div>
   );
