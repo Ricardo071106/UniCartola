@@ -5,6 +5,9 @@
   "engines": {
     "node": ">=20.9.0"
   },
+  "overrides": {
+    "tailwindcss": "3.4.17"
+  },
   "workspaces": [
     "apps/*",
     "packages/*",

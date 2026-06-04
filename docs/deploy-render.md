@@ -18,7 +18,7 @@ O build **não precisa** de banco. O banco é necessário só quando o app **ini
 
 | Campo | Valor |
 |-------|--------|
-| **Build Command** | `npm install --include=dev && npm run build -w web` |
+| **Build Command** | `chmod +x scripts/render-build.sh && ./scripts/render-build.sh` |
 | **Start Command** | `npm run start:prod` |
 | **Node** | `NODE_VERSION=20` |
 
