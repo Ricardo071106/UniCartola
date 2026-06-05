@@ -12,11 +12,26 @@ const ROUND_ORDER: Record<(typeof PLAYOFF_PHASES)[number], number> = {
   Final: 3,
 };
 
+const PLAYOFF_PHASE_ALIASES: Record<string, (typeof PLAYOFF_PHASES)[number]> = {
+  oitavas: "Oitavas",
+  "8ªs": "Oitavas",
+  "8as": "Oitavas",
+  quartas: "Quartas",
+  "4ªs": "Quartas",
+  "4as": "Quartas",
+  semi: "Semi",
+  semifinal: "Semi",
+  final: "Final",
+};
+
+function normalizePhase(phase: string): (typeof PLAYOFF_PHASES)[number] | null {
+  const key = phase.toLowerCase().replace(/\s/g, "");
+  return PLAYOFF_PHASE_ALIASES[key] ?? null;
+}
+
 function phaseRank(phase: string): number {
-  const key = PLAYOFF_PHASES.find(
-    (p) => p.toLowerCase() === phase.toLowerCase()
-  );
-  return key ? ROUND_ORDER[key] : 99;
+  const normalized = normalizePhase(phase);
+  return normalized ? ROUND_ORDER[normalized] : 99;
 }
 
 function winnerSide(
@@ -51,8 +66,8 @@ export async function getPlayoffBracket(
         eq(matches.sportId, sport.id),
         eq(matches.series, series),
         or(
-          ...PLAYOFF_PHASES.map((phase) =>
-            sql`lower(${matches.groupName}) = lower(${phase})`
+          ...Object.keys(PLAYOFF_PHASE_ALIASES).map(
+            (phase) => sql`lower(${matches.groupName}) = lower(${phase})`
           )
         )
       )
@@ -99,7 +114,7 @@ export async function getPlayoffBracket(
       const awayName =
         m.awayTeamName ?? awayAth?.name ?? awayUni?.shortName ?? "Fora";
 
-      const phase = m.groupName ?? "";
+      const phase = normalizePhase(m.groupName ?? "") ?? m.groupName ?? "";
       const win = winnerSide(m.homeScore, m.awayScore);
 
       return {
@@ -124,9 +139,7 @@ export async function getPlayoffBracket(
 
   const rounds = PLAYOFF_PHASES.map((phase) => ({
     phase,
-    matches: playoffMatches.filter(
-      (m) => m.phase.toLowerCase() === phase.toLowerCase()
-    ),
+    matches: playoffMatches.filter((m) => m.phase === phase),
   })).filter((r) => r.matches.length > 0);
 
   return { rounds };

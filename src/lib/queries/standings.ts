@@ -7,7 +7,16 @@ import {
 } from "@/lib/db/schema";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 
-const PLAYOFF_PHASES = ["Oitavas", "Quartas", "Semi", "Final"];
+const PLAYOFF_PHASES = [
+  "Oitavas",
+  "Quartas",
+  "Semi",
+  "Final",
+  "8ªs",
+  "4ªs",
+  "8as",
+  "4as",
+];
 import type { SportSlug, StandingsEntry } from "@/types";
 
 const SERIES = ["A", "B", "C", "D", "E", "F"] as const;

@@ -197,6 +197,40 @@ async function syncMatchScorers(
   }
 }
 
+async function findDuplicateMatch(
+  sportId: string,
+  row: ParsedMatchRow,
+  homeTeamName: string,
+  awayTeamName: string
+) {
+  const { normalizeTeamName } = await import("./parser");
+  const db = requireDb();
+  if (!row.series || row.homeScore == null || row.awayScore == null) return null;
+
+  const homeNorm = normalizeTeamName(homeTeamName);
+  const awayNorm = normalizeTeamName(awayTeamName);
+
+  const candidates = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.sportId, sportId));
+
+  return (
+    candidates.find((m) => {
+      if (m.series !== row.series) return false;
+      if (m.homeScore !== row.homeScore || m.awayScore !== row.awayScore) {
+        return false;
+      }
+      const mHome = normalizeTeamName(m.homeTeamName ?? "");
+      const mAway = normalizeTeamName(m.awayTeamName ?? "");
+      return (
+        (mHome === homeNorm && mAway === awayNorm) ||
+        (mHome === awayNorm && mAway === homeNorm)
+      );
+    }) ?? null
+  );
+}
+
 async function upsertMatchRow(
   row: ParsedMatchRow,
   sportId: string,
@@ -218,11 +252,21 @@ async function upsertMatchRow(
     row.isFinished && row.homeScore != null ? "finished" : "scheduled";
   const teams = await resolveMatchTeams(row);
 
-  const existing = await db
+  let existing = await db
     .select()
     .from(matches)
     .where(eq(matches.externalKey, externalKey))
     .limit(1);
+
+  if (!existing[0]) {
+    const duplicate = await findDuplicateMatch(
+      sportId,
+      row,
+      teams.homeTeamName ?? row.homeTeamRaw ?? "",
+      teams.awayTeamName ?? row.awayTeamRaw ?? ""
+    );
+    if (duplicate) existing = [duplicate];
+  }
 
   let matchId: string;
 
@@ -231,7 +275,9 @@ async function upsertMatchRow(
     const needsUpdate =
       existing[0].homeScore !== row.homeScore ||
       existing[0].awayScore !== row.awayScore ||
-      existing[0].status !== status;
+      existing[0].status !== status ||
+      existing[0].externalKey !== externalKey ||
+      existing[0].groupName !== row.group;
 
     if (needsUpdate) {
       await db
@@ -242,6 +288,7 @@ async function upsertMatchRow(
           status,
           scheduledAt,
           updatedAt: new Date(),
+          externalKey: row.nduMatchId ? externalKey : existing[0].externalKey,
           series: row.series,
           groupName: row.group,
           modality: row.modality,

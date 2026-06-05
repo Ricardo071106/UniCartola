@@ -5,6 +5,7 @@ import {
   modalityToSportSlug,
   normalizeLogoUrl,
 } from "./normalize";
+import { normalizePlayoffPhase } from "./boletim-parser";
 
 export { normalizeTeamName, modalityToSportSlug };
 
@@ -116,6 +117,11 @@ function extractNduMatchId(
   return found;
 }
 
+function normalizeGroupName(group: string): string {
+  if (/^[A-F]$/i.test(group)) return group.toUpperCase();
+  return normalizePlayoffPhase(group);
+}
+
 export function parseNduJogosPage(html: string): ParsedMatchRow[] {
   const $ = cheerio.load(html);
   const athleticsMap = parseNduAthleticsMap(html);
@@ -130,7 +136,8 @@ export function parseNduJogosPage(html: string): ParsedMatchRow[] {
     const dateLabel = $(tds[0]).text().replace(/\s+/g, " ").trim();
     const modality = $(tds[1]).text().trim();
     const series = $(tds[2]).text().trim();
-    const group = $(tds[3]).text().trim();
+    const groupRaw = $(tds[3]).text().trim();
+    const group = normalizeGroupName(groupRaw);
 
     if (!dateLabel || /data|modalidade|série|grupo/i.test(dateLabel)) return;
     if (!modality || !series) return;
@@ -185,7 +192,8 @@ export function parseNduJogosPage(html: string): ParsedMatchRow[] {
     const dateLabel = $(tds[0]).text().replace(/\s+/g, " ").trim();
     const modality = $(tds[1]).text().trim();
     const series = $(tds[2]).text().trim();
-    const group = $(tds[3]).text().trim();
+    const groupRaw = $(tds[3]).text().trim();
+    const group = normalizeGroupName(groupRaw);
     const partidaHtml = $(tds[4]).html() ?? "";
 
     if (!dateLabel || /ainda não há|não há jogos|data/i.test(dateLabel)) return;
