@@ -250,12 +250,28 @@ async function getPlayoffBracketFromDb(
   return buildBracketFromMatches(playoffMatches);
 }
 
+/** Rápido — só banco. Usado na home para não travar a página. */
 export async function getPlayoffBracket(
   sportSlug: SportSlug,
   series: SeriesLetter
 ): Promise<PlayoffBracket | null> {
+  return getPlayoffBracketFromDb(sportSlug, series);
+}
+
+/** Banco + boletim (com timeout). Usado na API do mata-mata. */
+export async function getPlayoffBracketWithBoletim(
+  sportSlug: SportSlug,
+  series: SeriesLetter,
+  timeoutMs = 8000
+): Promise<PlayoffBracket | null> {
+  const { withTimeout } = await import("@/lib/utils/timeout");
+
   const fromDb = await getPlayoffBracketFromDb(sportSlug, series);
   if (fromDb && fromDb.rounds.length > 0) return fromDb;
 
-  return getPlayoffBracketFromBoletim(sportSlug, series);
+  return withTimeout(
+    getPlayoffBracketFromBoletim(sportSlug, series),
+    timeoutMs,
+    null
+  );
 }

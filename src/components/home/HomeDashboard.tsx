@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -35,18 +36,21 @@ export function HomeDashboard({
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
   function updateParams(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.set(key, value);
-    router.push(`/?${params.toString()}`);
+    startTransition(() => {
+      router.replace(`/?${params.toString()}`, { scroll: false });
+    });
   }
 
   const isBasketball = sport === "basquete";
   const sportLabel = SPORT_ICONS[sport]?.label ?? sport;
 
   return (
-    <div className="space-y-5">
+    <div className={cn("space-y-5", isPending && "opacity-80")}>
       <section className="cartola-card overflow-hidden p-1">
         <div className="grid grid-cols-3 gap-1">
           {(Object.keys(SPORT_ICONS) as SportSlug[]).map((slug) => {
@@ -120,7 +124,11 @@ export function HomeDashboard({
             {sportLabel} · Série {series}
           </p>
         </div>
-        <PlayoffBracket bracket={playoffBracket} />
+        <PlayoffBracket
+          sport={sport}
+          series={series}
+          initialBracket={playoffBracket}
+        />
       </section>
 
       <section className="cartola-card overflow-hidden">

@@ -1,5 +1,4 @@
-import { Suspense } from "react";
-import { HomeDashboard } from "@/components/home/HomeDashboard";
+import { HomeDashboardShell } from "./home-dashboard";
 import { getStandingsBySeries, SERIES } from "@/lib/queries/standings";
 import { getTopGoalScorers, getTopPointScorers } from "@/lib/queries/scorers";
 import { getPlayoffBracket } from "@/lib/queries/playoffs";
@@ -36,15 +35,13 @@ export default async function HomePage({
     ]);
 
   return (
-    <Suspense fallback={<div className="py-12 text-center text-zinc-400">Carregando...</div>}>
-      <HomeDashboard
-        sport={sport}
-        series={series}
-        standings={standings}
-        playoffBracket={playoffBracket}
-        goalScorers={goalScorers}
-        pointScorers={pointScorers}
-      />
-    </Suspense>
+    <HomeDashboardShell
+      sport={sport}
+      series={series}
+      standings={standings}
+      playoffBracket={playoffBracket}
+      goalScorers={goalScorers}
+      pointScorers={pointScorers}
+    />
   );
 }
