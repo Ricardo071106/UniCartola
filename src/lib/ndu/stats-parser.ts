@@ -110,8 +110,13 @@ export function parseNduCardStatsPage(html: string): ParsedNduScorer[] {
   const cards: ParsedNduScorer[] = [];
 
   $("h3").each((_, h3) => {
-    const title = $(h3).text().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const title = $(h3)
+      .text()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
     const isCardSection =
+      title.includes("cartoes") ||
       title.includes("cartao") ||
       title.includes("advertencia") ||
       title.includes("punic");
