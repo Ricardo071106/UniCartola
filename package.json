@@ -9,13 +9,8 @@
     "start:prod": "bash scripts/render-start.sh",
     "render:build": "bash scripts/render-build.sh",
     "lint": "eslint",
-    "db:generate": "drizzle-kit generate",
-    "db:push": "bash scripts/db-push.sh",
-    "db:push:local": "bash scripts/db-push.sh",
-    "db:migrate": "tsx scripts/migrate-schema.ts",
-    "build:render": "npm install --include=dev && npm run build",
-    "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:drop": "tsx scripts/drop-database.ts",
+    "build:render": "npm install --include=dev && npm run build"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.11",
@@ -32,11 +27,9 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "dotenv": "^17.4.2",
-    "drizzle-orm": "^0.45.2",
     "jose": "^6.2.3",
     "lucide-react": "^1.17.0",
     "next": "15.5.19",
-    "postgres": "^3.4.9",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "tailwind-merge": "^3.6.0"
@@ -48,7 +41,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.21",
-    "drizzle-kit": "^0.31.10",
+    "postgres": "^3.4.9",
     "eslint": "^9",
     "eslint-config-next": "15.5.19",
     "tailwindcss": "^3.4.17",

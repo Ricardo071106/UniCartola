@@ -1,39 +1,16 @@
-import { JogosClient } from "./JogosClient";
-import { getMatchesByFilter } from "@/lib/queries/matches";
-import type { SportSlug } from "@/types";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { RedesignBanner } from "@/components/layout/RedesignBanner";
 
-export const dynamic = "force-dynamic";
-
-export default async function JogosPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ sport?: string; tab?: string }>;
-}) {
-  const params = await searchParams;
-  const sport = ["futebol", "futsal", "basquete"].includes(params.sport ?? "")
-    ? (params.sport as SportSlug)
-    : undefined;
-  const tab = ["today", "tomorrow", "week", "finished"].includes(
-    params.tab ?? ""
-  )
-    ? (params.tab as "today" | "tomorrow" | "week" | "finished")
-    : "today";
-
-  const matches = await getMatchesByFilter({ sport, tab });
-
+export default function JogosPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Jogos</h1>
-        <p className="text-sm text-gray-500">
-          Acompanhe partidas e faça seus palpites
-        </p>
-      </div>
-      <JogosClient
-        initialMatches={matches}
-        initialSport={sport}
-        initialTab={tab}
+      <PageHeader
+        title="Jogos"
+        subtitle="Agenda de partidas universitárias"
+        gradient="from-[#1e3a5f] to-[#2d5a8e]"
+        emoji="📅"
       />
+      <RedesignBanner />
     </div>
   );
 }

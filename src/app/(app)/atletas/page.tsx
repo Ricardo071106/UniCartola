@@ -1,14 +1,14 @@
 import { PageHeader } from "@/components/layout/PageHeader";
 import { RedesignBanner } from "@/components/layout/RedesignBanner";
 
-export default function PartidaPage() {
+export default function AtletasPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Partida"
-        subtitle="Detalhes e palpites"
-        gradient="from-[#1e3a5f] to-[#2d5a8e]"
-        emoji="⚽"
+        title="Atletas"
+        subtitle="Artilheiros e destaques das atléticas"
+        gradient="from-violet-600 via-[#1e3a5f] to-indigo-800"
+        emoji="⭐"
       />
       <RedesignBanner />
     </div>
