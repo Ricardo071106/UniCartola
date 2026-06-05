@@ -22,6 +22,15 @@ export function parseSeries(value?: string | null): SeriesLetter {
     : "A";
 }
 
+const SPORT_SLUGS = ["futsal", "futebol", "basquete"] as const;
+
+export function parseSport(value?: string | null): SportSlug {
+  const candidate = (value?.trim() || "futsal").toLowerCase();
+  return SPORT_SLUGS.includes(candidate as SportSlug)
+    ? (candidate as SportSlug)
+    : "futsal";
+}
+
 export async function getStandingsBySeries(
   sportSlug: SportSlug,
   series: SeriesLetter

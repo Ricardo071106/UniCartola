@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { JogosClient } from "./JogosClient";
 import { getMatchesByFilter } from "@/lib/queries/matches";
+import { safeQuery } from "@/lib/db/safe-query";
 import type { SportSlug } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +25,10 @@ export default async function JogosPage({
     ? (params.tab as "upcoming" | "today" | "tomorrow" | "week" | "finished")
     : "upcoming";
 
-  const matches = await getMatchesByFilter({ sport, tab });
+  const matches = await safeQuery(
+    () => getMatchesByFilter({ sport, tab }),
+    []
+  );
 
   return (
     <div className="space-y-6">
@@ -33,11 +38,13 @@ export default async function JogosPage({
           Acompanhe partidas e faça seus palpites
         </p>
       </div>
-      <JogosClient
-        initialMatches={matches}
-        initialSport={sport}
-        initialTab={tab}
-      />
+      <Suspense fallback={<p className="text-zinc-400">Carregando jogos...</p>}>
+        <JogosClient
+          initialMatches={matches}
+          {...(sport ? { initialSport: sport } : {})}
+          initialTab={tab}
+        />
+      </Suspense>
     </div>
   );
 }

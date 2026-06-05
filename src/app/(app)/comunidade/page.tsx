@@ -2,9 +2,8 @@ import { getFeedPosts } from "@/lib/queries/community";
 import { getPostComments } from "@/lib/queries/community";
 import { getSession } from "@/lib/auth/session";
 import { getCurrencyMode } from "@/lib/currency/server";
-import { requireDb } from "@/lib/db";
-import { users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { safeQuery } from "@/lib/db/safe-query";
+import { getUserBalances } from "@/lib/queries/user-balances";
 import { PostCard } from "@/components/community/PostCard";
 import { CurrencyToggle } from "@/components/currency/CurrencyToggle";
 import { CreatePostForm } from "./CreatePostForm";
@@ -17,23 +16,22 @@ export default async function ComunidadePage() {
   let playBalance = 10000;
   let realBalance = 0;
   if (session) {
-    const db = requireDb();
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, session.userId))
-      .limit(1);
-    playBalance = user?.playBalance ?? 10000;
-    realBalance = user?.realBalance ?? 0;
+    const balances = await getUserBalances(session.userId);
+    playBalance = balances.playBalance;
+    realBalance = balances.realBalance;
   }
 
-  const posts = await getFeedPosts(session?.userId, 30);
+  const posts = await safeQuery(() => getFeedPosts(session?.userId, 30), []);
 
-  const postsWithComments = await Promise.all(
-    posts.slice(0, 10).map(async (post) => ({
-      post,
-      comments: await getPostComments(post.id),
-    }))
+  const postsWithComments = await safeQuery(
+    () =>
+      Promise.all(
+        posts.slice(0, 10).map(async (post) => ({
+          post,
+          comments: await getPostComments(post.id),
+        }))
+      ),
+    []
   );
 
   return (

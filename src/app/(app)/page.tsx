@@ -1,10 +1,12 @@
 import { HomeDashboardShell } from "./home-dashboard";
-import { getStandingsBySeries, parseSeries } from "@/lib/queries/standings";
+import {
+  getStandingsBySeries,
+  parseSeries,
+  parseSport,
+} from "@/lib/queries/standings";
 import { getTopGoalScorers, getTopPointScorers } from "@/lib/queries/scorers";
 import { getPlayoffBracket } from "@/lib/queries/playoffs";
 import { safeQuery } from "@/lib/db/safe-query";
-import type { SportSlug } from "@/types";
-
 export const dynamic = "force-dynamic";
 
 type SearchParams = Promise<{ sport?: string; series?: string }>;
@@ -15,11 +17,7 @@ export default async function HomePage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const sport = (
-    ["futsal", "futebol", "basquete"].includes(params.sport ?? "")
-      ? params.sport
-      : "futsal"
-  ) as SportSlug;
+  const sport = parseSport(params.sport);
   const series = parseSeries(params.series);
 
   const [standings, playoffBracket, goalScorers, pointScorers] =

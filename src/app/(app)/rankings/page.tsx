@@ -1,12 +1,16 @@
 import { RankingTable } from "@/components/ranking/RankingTable";
 import { getGeneralLeaderboard } from "@/lib/queries/rankings";
 import { getCurrencyMode } from "@/lib/currency/server";
+import { safeQuery } from "@/lib/db/safe-query";
 
 export const dynamic = "force-dynamic";
 
 export default async function RankingsPage() {
   const currencyMode = await getCurrencyMode();
-  const userRankings = await getGeneralLeaderboard(50, { currencyMode });
+  const userRankings = await safeQuery(
+    () => getGeneralLeaderboard(50, { currencyMode }),
+    []
+  );
 
   return (
     <div className="space-y-6">
