@@ -135,10 +135,23 @@ export function createPostgresClient(connectionString: string, max = 10) {
   };
 
   if (needsSsl) {
-    options.ssl = "require";
+    // Supabase pooler no Render: ssl "require" + relaxa verificação de cert
+    options.ssl = { rejectUnauthorized: false };
   }
 
   return postgres(connectionString, options);
+}
+
+export async function testDatabaseConnection(): Promise<void> {
+  const url = getConnectionString();
+  if (!url) throw new Error("DATABASE_URL não definida");
+
+  const client = createPostgresClient(url, 1);
+  try {
+    await client`SELECT 1 as ok`;
+  } finally {
+    await client.end({ timeout: 5 });
+  }
 }
 
 export function logConnectionPreview(connectionString: string) {
@@ -154,7 +167,12 @@ export function supabaseConnectionHelp(error?: unknown): string {
   }
   const msg = parts.join(" ").toLowerCase();
 
-  if (msg.includes("enetunreach") || msg.includes("econnrefused")) {
+  if (
+    msg.includes("enetunreach") ||
+    msg.includes("econnrefused") ||
+    msg.includes("etimedout") ||
+    msg.includes("timeout")
+  ) {
     return `
 ❌ Não conectou ao PostgreSQL (rede/IPv6)
 
@@ -168,7 +186,11 @@ Ou defina separado (senha sem @ # %):
 `.trim();
   }
 
-  if (msg.includes("tenant") || msg.includes("user not found")) {
+  if (
+    msg.includes("tenant") ||
+    msg.includes("user not found") ||
+    msg.includes("xx000")
+  ) {
     return `
 ❌ Usuário/tenant incorreto no pooler
 
@@ -177,7 +199,10 @@ O usuário deve ser postgres.SEU_PROJECT_REF (ex: postgres.abcdefgh).
 `.trim();
   }
 
-  if (msg.includes("password authentication failed")) {
+  if (
+    msg.includes("password authentication failed") ||
+    msg.includes("28p01")
+  ) {
     return `
 ❌ Senha incorreta
 
