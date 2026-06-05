@@ -22,17 +22,17 @@ export default async function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-lg px-4 py-8">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1e3a5f]">
-            <GraduationCap className="h-9 w-9 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Campus League</h1>
-          <p className="mt-2 text-sm text-gray-500">
-            Represente sua faculdade. Palpite nos jogos universitários.
-          </p>
+    <div className="min-h-screen bg-[#eef2ee]">
+      <div className="cartola-header px-4 py-8 text-center text-white">
+        <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 ring-2 ring-white/30">
+          <GraduationCap className="h-9 w-9 text-white" />
         </div>
+        <h1 className="text-2xl font-black">UniCartola</h1>
+        <p className="mt-1 text-sm text-white/80">
+          Represente sua faculdade nos jogos universitários
+        </p>
+      </div>
+      <div className="mx-auto max-w-lg px-4 py-8">
 
         <OnboardingWizard />
 
