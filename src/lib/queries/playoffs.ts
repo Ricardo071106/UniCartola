@@ -52,6 +52,48 @@ function winnerSide(
   return "draw";
 }
 
+function displayTeamName(
+  stored: string | null | undefined,
+  athleticName: string | null | undefined,
+  uniShort: string | null | undefined
+): string {
+  const name = (stored?.trim() || athleticName?.trim() || uniShort?.trim() || "")
+    .replace(/\s+/g, " ");
+  return name || "A definir";
+}
+
+function matchQuality(m: PlayoffMatch): number {
+  let score = 0;
+  if (m.homeName !== "A definir") score += 2;
+  if (m.awayName !== "A definir") score += 2;
+  if (m.status === "finished") score += 1;
+  if (m.homeLogoUrl) score += 1;
+  if (m.awayLogoUrl) score += 1;
+  return score;
+}
+
+function mergeBrackets(
+  primary: PlayoffBracket | null,
+  secondary: PlayoffBracket | null
+): PlayoffBracket | null {
+  const all = [
+    ...(primary?.rounds.flatMap((r) => r.matches) ?? []),
+    ...(secondary?.rounds.flatMap((r) => r.matches) ?? []),
+  ];
+  if (all.length === 0) return null;
+
+  const best = new Map<string, PlayoffMatch>();
+  for (const match of all) {
+    const key = `${match.phase}:${normalizeTeamName(match.homeName)}:${normalizeTeamName(match.awayName)}`;
+    const existing = best.get(key);
+    if (!existing || matchQuality(match) > matchQuality(existing)) {
+      best.set(key, match);
+    }
+  }
+
+  return buildBracketFromMatches([...best.values()]);
+}
+
 function buildBracketFromMatches(playoffMatches: PlayoffMatch[]): PlayoffBracket {
   const sorted = [...playoffMatches].sort(
     (a, b) =>
@@ -113,8 +155,8 @@ async function rowsToPlayoffMatches(
         id: `boletim-${row.series}-${phase}-${index}`,
         phase,
         scheduledAt: date,
-        homeName: home.name,
-        awayName: away.name,
+        homeName: displayTeamName(home.name, home.name, null),
+        awayName: displayTeamName(away.name, away.name, null),
         homeLogoUrl: home.logoUrl,
         awayLogoUrl: away.logoUrl,
         homeScore,
@@ -231,10 +273,16 @@ async function getPlayoffBracketFromDb(
     const homeUni = uniMap.get(m.homeUniversityId);
     const awayUni = uniMap.get(m.awayUniversityId);
 
-    const homeName =
-      m.homeTeamName ?? homeAth?.name ?? homeUni?.shortName ?? "Casa";
-    const awayName =
-      m.awayTeamName ?? awayAth?.name ?? awayUni?.shortName ?? "Fora";
+    const homeName = displayTeamName(
+      m.homeTeamName,
+      homeAth?.name,
+      homeUni?.shortName
+    );
+    const awayName = displayTeamName(
+      m.awayTeamName,
+      awayAth?.name,
+      awayUni?.shortName
+    );
 
     const phase = normalizePlayoffPhase(m.groupName ?? "");
     const win = winnerSide(m.homeScore, m.awayScore);
@@ -257,7 +305,7 @@ async function getPlayoffBracketFromDb(
   return buildBracketFromMatches(playoffMatches);
 }
 
-/** Rápido — só banco. Usado na home para não travar a página. */
+/** Rápido — banco. A home complementa via API quando faltar dados. */
 export async function getPlayoffBracket(
   sportSlug: SportSlug,
   series: SeriesLetter
@@ -265,7 +313,7 @@ export async function getPlayoffBracket(
   return getPlayoffBracketFromDb(sportSlug, series);
 }
 
-/** Banco + boletim (com timeout). Usado na API do mata-mata. */
+/** Banco + boletim (com timeout). */
 export async function getPlayoffBracketWithBoletim(
   sportSlug: SportSlug,
   series: SeriesLetter,
@@ -274,11 +322,12 @@ export async function getPlayoffBracketWithBoletim(
   const { withTimeout } = await import("@/lib/utils/timeout");
 
   const fromDb = await getPlayoffBracketFromDb(sportSlug, series);
-  if (fromDb && fromDb.rounds.length > 0) return fromDb;
 
-  return withTimeout(
+  const fromBoletim = await withTimeout(
     getPlayoffBracketFromBoletim(sportSlug, series),
     timeoutMs,
     null
   );
+
+  return mergeBrackets(fromDb, fromBoletim);
 }

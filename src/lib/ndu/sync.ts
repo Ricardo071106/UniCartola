@@ -110,18 +110,26 @@ async function resolveMatchTeams(row: ParsedMatchRow) {
   const [fallbackUni] = await db.select().from(universities).limit(1);
   if (!fallbackUni) throw new Error("No universities in database");
 
-  if (row.homeTeamRaw && row.awayTeamRaw) {
+  const [homeLogo, awayLogo] = await Promise.all([
+    resolveTeamFromLogo(row.homeLogoUrl),
+    resolveTeamFromLogo(row.awayLogoUrl),
+  ]);
+
+  const homeRaw = (row.homeTeamRaw || homeLogo.teamName || "").trim();
+  const awayRaw = (row.awayTeamRaw || awayLogo.teamName || "").trim();
+
+  if (homeRaw && awayRaw) {
     const [home, away] = await Promise.all([
-      resolveTeam(row.homeTeamRaw, row.homeLogoUrl),
-      resolveTeam(row.awayTeamRaw, row.awayLogoUrl),
+      resolveTeam(homeRaw, row.homeLogoUrl ?? homeLogo.logoUrl),
+      resolveTeam(awayRaw, row.awayLogoUrl ?? awayLogo.logoUrl),
     ]);
     return {
       homeUniversityId: home.universityId,
       awayUniversityId: away.universityId,
       homeAthleticsId: home.athleticsId,
       awayAthleticsId: away.athleticsId,
-      homeTeamName: row.homeTeamRaw,
-      awayTeamName: row.awayTeamRaw,
+      homeTeamName: home.teamName || homeRaw,
+      awayTeamName: away.teamName || awayRaw,
     };
   }
 
@@ -130,8 +138,8 @@ async function resolveMatchTeams(row: ParsedMatchRow) {
     awayUniversityId: fallbackUni.id,
     homeAthleticsId: null,
     awayAthleticsId: null,
-    homeTeamName: row.homeTeamRaw ?? null,
-    awayTeamName: row.awayTeamRaw ?? null,
+    homeTeamName: homeRaw || null,
+    awayTeamName: awayRaw || null,
   };
 }
 

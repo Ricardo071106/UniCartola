@@ -17,6 +17,7 @@ function TeamBadge({
   score: number | null;
   isWinner: boolean;
 }) {
+  const label = name.trim() || "A definir";
   return (
     <div
       className={cn(
@@ -27,7 +28,7 @@ function TeamBadge({
       {logoUrl ? (
         <Image
           src={logoUrl}
-          alt={name}
+          alt={label}
           width={24}
           height={24}
           className="h-6 w-6 shrink-0 rounded-full object-cover"
@@ -35,7 +36,7 @@ function TeamBadge({
         />
       ) : (
         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-700 text-[8px] font-bold text-zinc-300">
-          {name.slice(0, 2).toUpperCase()}
+          {label.slice(0, 2).toUpperCase()}
         </div>
       )}
       <span
@@ -44,7 +45,7 @@ function TeamBadge({
           isWinner ? "text-white" : "text-zinc-400"
         )}
       >
-        {name}
+        {label}
       </span>
       {score != null && (
         <span
@@ -116,18 +117,28 @@ export function PlayoffBracket({
   initialBracket: PlayoffBracketData | null;
 }) {
   const [bracket, setBracket] = useState(initialBracket);
-  const [loading, setLoading] = useState(
-    !initialBracket || initialBracket.rounds.length === 0
-  );
+  const [loading, setLoading] = useState(false);
+
+  function bracketNeedsRefresh(data: PlayoffBracketData | null) {
+    if (!data?.rounds?.length) return true;
+    return data.rounds.some((round) =>
+      round.matches.some(
+        (m) =>
+          !m.homeName?.trim() ||
+          !m.awayName?.trim() ||
+          m.homeName === "A definir" ||
+          m.awayName === "A definir"
+      )
+    );
+  }
 
   useEffect(() => {
     setBracket(initialBracket);
-    const hasData = initialBracket && initialBracket.rounds.length > 0;
-    setLoading(!hasData);
 
-    if (hasData) return;
+    if (!bracketNeedsRefresh(initialBracket)) return;
 
     const controller = new AbortController();
+    setLoading(true);
 
     fetch(`/api/playoffs?sport=${sport}&series=${series}`, {
       signal: controller.signal,
@@ -142,7 +153,7 @@ export function PlayoffBracket({
     return () => controller.abort();
   }, [sport, series, initialBracket]);
 
-  if (loading) {
+  if (loading && (!bracket || bracket.rounds.length === 0)) {
     return (
       <div className="py-10 text-center">
         <p className="text-sm font-semibold text-zinc-500">

@@ -10,7 +10,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 const navItems = [
   { href: "/", label: "Início", icon: Home },
   { href: "/jogos", label: "Jogos", icon: Calendar },
-  { href: "/rankings", label: "Rankings", icon: Trophy },
+  { href: "/rankings", label: "Ranking", icon: Trophy },
   { href: "/comunidade", label: "Fórum", icon: Users },
   { href: "/perfil", label: "Perfil", icon: User },
 ];

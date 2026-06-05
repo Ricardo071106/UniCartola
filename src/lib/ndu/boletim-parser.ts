@@ -21,7 +21,7 @@ const TARGET_SPORTS = [
   },
 ];
 
-const PLAYOFF_PHASE_RE = /(8ªs|4ªs|Semi|Final)/i;
+const PLAYOFF_PHASE_RE = /(8ªs|4ªs|Oitavas|Quartas|Semi|Final)/i;
 
 const PLAYOFF_END_RE =
   /\n(?:Handebol|Vôlei|Futebol de Campo Masculino|Basquete Masculino|Futsal Masculino)\s+(?:\(Série|Feminino|Masculino)/i;
@@ -165,7 +165,7 @@ function parsePlayoffRecord(
   if (/^X$/i.test(homeTeamRaw) || /^X$/i.test(awayTeamRaw)) return null;
 
   const venueMatch = beforeScore.match(
-    /^(\d{2}\/\d{2})\s+(\S+)\s+([\wÀ-ú\s-]+?)\s+(8ªs|4ªs|Semi|Final)/i
+    /^(\d{2}\/\d{2})\s+(\S+)\s+([\wÀ-ú\s-]+?)\s+(8ªs|4ªs|Oitavas|Quartas|Semi|Final)/i
   );
 
   return {
