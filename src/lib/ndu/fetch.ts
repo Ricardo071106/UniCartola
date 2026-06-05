@@ -5,6 +5,11 @@ import {
 
 export const NDU_JOGOS_URL = "https://www.ndu.com.br/jogos";
 export const NDU_LISTAR_URL = "https://www.ndu.com.br/jogos/listar_todos_jogos";
+export const NDU_BOLETIM_URL = "https://www.ndu.com.br/boletim";
+export const NDU_STATS_URL = "https://www.ndu.com.br/estatisticas";
+export const NDU_STATS_MODALITY_URL =
+  "https://www.ndu.com.br/estatisticas/por_modalidade";
+export const NDU_ATLETICAS_URL = "https://www.ndu.com.br/atletica";
 
 export async function fetchNduHtml(
   url: string,
@@ -66,4 +71,47 @@ export async function fetchAllNduJogosHtml(): Promise<string> {
   );
 
   return [baseHtml, ...fragments].join("\n");
+}
+
+export async function fetchNduBinary(
+  url: string,
+  referer: string
+): Promise<Buffer> {
+  const res = await fetch(url, {
+    headers: {
+      ...NDU_BROWSER_HEADERS,
+      Accept: "application/pdf,*/*",
+      Referer: referer,
+    },
+  });
+  if (!res.ok) throw new Error(`NDU binary fetch failed ${url}: ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.slice(0, 15).toString().includes("Not Acceptable")) {
+    throw new Error(`NDU blocked binary request to ${url}`);
+  }
+  return buf;
+}
+
+export async function fetchNduStatsFragment(
+  modalityId: string,
+  series: string,
+  year = "2026"
+): Promise<string> {
+  const body = new URLSearchParams({
+    modalidade: modalityId,
+    serie: series,
+    semestre: "",
+    ano: year,
+    id_atletica: "",
+  });
+
+  return fetchNduHtml(NDU_STATS_MODALITY_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Referer: NDU_STATS_URL,
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    body,
+  });
 }

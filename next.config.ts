@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["cheerio"],
+  serverExternalPackages: ["cheerio", "pdf-parse"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "api.dicebear.com" },

@@ -83,13 +83,41 @@ export const athletics = pgTable(
       .notNull(),
     name: varchar("name", { length: 200 }).notNull(),
     logoUrl: text("logo_url"),
+    nduAthleticId: integer("ndu_athletic_id"),
     nduAlias: varchar("ndu_alias", { length: 255 }),
     normalizedName: varchar("normalized_name", { length: 255 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [
+    uniqueIndex("athletics_ndu_id_idx").on(t.nduAthleticId),
     index("athletics_university_idx").on(t.universityId),
     index("athletics_normalized_idx").on(t.normalizedName),
+  ]
+);
+
+export const nduScorerStats = pgTable(
+  "ndu_scorer_stats",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sportSlug: varchar("sport_slug", { length: 20 }).notNull(),
+    series: varchar("series", { length: 2 }).notNull(),
+    playerName: varchar("player_name", { length: 200 }).notNull(),
+    athleticNduId: integer("athletic_ndu_id"),
+    teamName: varchar("team_name", { length: 200 }),
+    logoUrl: text("logo_url"),
+    total: integer("total").notNull(),
+    statType: varchar("stat_type", { length: 10 }).notNull(),
+    seasonYear: integer("season_year").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("ndu_scorer_stats_unique_idx").on(
+      t.sportSlug,
+      t.series,
+      t.playerName,
+      t.statType,
+      t.seasonYear
+    ),
   ]
 );
 

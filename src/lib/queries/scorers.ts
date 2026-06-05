@@ -5,6 +5,8 @@ import {
   sports,
   athletics,
   universities,
+  nduScorerStats,
+  seasons,
 } from "@/lib/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { normalizeTeamName } from "@/lib/ndu/normalize";
@@ -24,12 +26,86 @@ type TopScorerJson = {
   points: number;
 };
 
+async function getSeasonYear(): Promise<number> {
+  const db = requireDb();
+  const [active] = await db
+    .select()
+    .from(seasons)
+    .where(eq(seasons.isActive, true))
+    .limit(1);
+  return active?.year ?? new Date().getFullYear();
+}
+
+async function fromNduScorerStats(
+  sportSlug: SportSlug,
+  series: SeriesLetter,
+  statType: "goals" | "points",
+  limit: number
+): Promise<ScorerEntry[]> {
+  const db = requireDb();
+  const year = await getSeasonYear();
+
+  const rows = await db
+    .select()
+    .from(nduScorerStats)
+    .where(
+      and(
+        eq(nduScorerStats.sportSlug, sportSlug),
+        eq(nduScorerStats.series, series),
+        eq(nduScorerStats.statType, statType),
+        eq(nduScorerStats.seasonYear, year)
+      )
+    );
+
+  if (rows.length === 0) return [];
+
+  const athleticIds = rows
+    .map((r) => r.athleticNduId)
+    .filter((id): id is number => id != null);
+
+  const athRows = athleticIds.length
+    ? await db.select().from(athletics)
+    : [];
+
+  const athByNduId = new Map(
+    athRows
+      .filter((a) => a.nduAthleticId != null)
+      .map((a) => [a.nduAthleticId!, a])
+  );
+
+  return rows
+    .sort((a, b) => b.total - a.total)
+    .slice(0, limit)
+    .map((r, i) => {
+      const ath = r.athleticNduId
+        ? athByNduId.get(r.athleticNduId)
+        : undefined;
+      return {
+        playerName: r.playerName,
+        teamName: r.teamName ?? ath?.name ?? "",
+        athleticsId: ath?.id ?? null,
+        universityId: ath?.universityId ?? null,
+        logoUrl: r.logoUrl ?? ath?.logoUrl ?? null,
+        total: r.total,
+        rank: i + 1,
+      };
+    });
+}
+
 export async function getTopGoalScorers(
   sportSlug: SportSlug,
   series: SeriesLetter,
   limit = 10
 ): Promise<ScorerEntry[]> {
   if (sportSlug === "basquete") return [];
+
+  const fromStats = await fromNduScorerStats(
+    sportSlug,
+    series,
+    "goals",
+    limit
+  );
+  if (fromStats.length > 0) return fromStats;
 
   const db = requireDb();
   const [sport] = await db
@@ -81,6 +157,14 @@ export async function getTopPointScorers(
   limit = 10
 ): Promise<ScorerEntry[]> {
   if (sportSlug !== "basquete") return [];
+
+  const fromStats = await fromNduScorerStats(
+    sportSlug,
+    series,
+    "points",
+    limit
+  );
+  if (fromStats.length > 0) return fromStats;
 
   const db = requireDb();
   const [sport] = await db

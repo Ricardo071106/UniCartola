@@ -55,10 +55,11 @@ async function resolveTeam(
     );
 
   if (exact) {
-    if (logoUrl && exact.logoUrl !== logoUrl) {
+    const bestLogo = exact.logoUrl ?? logoUrl;
+    if (bestLogo && exact.logoUrl !== bestLogo) {
       await db
         .update(athletics)
-        .set({ logoUrl })
+        .set({ logoUrl: bestLogo })
         .where(eq(athletics.id, exact.id));
     }
     return {
@@ -207,7 +208,12 @@ async function upsertMatchRow(
   const { parseNduDateLabel, buildExternalKey } = await import("./parser");
 
   const externalKey = buildExternalKey(row, sportSlug);
-  const scheduledAt = parseNduDateLabel(row.dateLabel, year) ?? new Date();
+  const { parseNduDateFromBoletim } = await import("./boletim-parser");
+  const boletimDate = row.dateLabel.match(/(\d{2}\/\d{2})/)?.[1];
+  const scheduledAt =
+    parseNduDateLabel(row.dateLabel, year) ??
+    (boletimDate ? parseNduDateFromBoletim(boletimDate, year) : null) ??
+    new Date();
   const status =
     row.isFinished && row.homeScore != null ? "finished" : "scheduled";
   const teams = await resolveMatchTeams(row);
@@ -273,10 +279,77 @@ export type ScrapeOptions = {
   scorerLimit?: number;
 };
 
+async function ingestMatchRows(
+  allRows: ParsedMatchRow[],
+  sportBySlug: Map<string, { id: string; slug: string }>,
+  year: number,
+  seasonId: string | null,
+  errors: string[],
+  opts: {
+    syncMatchScorers: boolean;
+    scorerLimit: number;
+  }
+) {
+  const { modalityToSportSlug } = await import("./parser");
+  let totalCreated = 0;
+  let totalUpdated = 0;
+  let scorersSynced = 0;
+
+  const finishedForScorers: {
+    matchId: string;
+    nduMatchId: string;
+    isBasketball: boolean;
+  }[] = [];
+
+  for (const row of allRows) {
+    const slug = modalityToSportSlug(row.modality);
+    if (!slug || !["futebol", "futsal", "basquete"].includes(slug)) continue;
+
+    const sport = sportBySlug.get(slug);
+    if (!sport) continue;
+
+    try {
+      const result = await upsertMatchRow(row, sport.id, slug, year, seasonId);
+      if (result.created) totalCreated++;
+      if (result.updated) totalUpdated++;
+
+      if (
+        opts.syncMatchScorers &&
+        row.nduMatchId &&
+        row.isFinished &&
+        row.homeScore != null
+      ) {
+        finishedForScorers.push({
+          matchId: result.matchId,
+          nduMatchId: row.nduMatchId,
+          isBasketball: slug === "basquete",
+        });
+      }
+    } catch (e) {
+      errors.push(
+        `${slug}/${row.nduMatchId ?? row.dateLabel}: ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+  }
+
+  for (const item of finishedForScorers.slice(0, opts.scorerLimit)) {
+    try {
+      await syncMatchScorers(item.matchId, item.nduMatchId, item.isBasketball);
+      scorersSynced++;
+    } catch (e) {
+      errors.push(
+        `scorers/${item.nduMatchId}: ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+  }
+
+  return { totalCreated, totalUpdated, scorersSynced };
+}
+
 export async function runFullScrape(options: ScrapeOptions = {}) {
   const db = requireDb();
-  const syncScorers =
-    options.syncScorers ?? process.env.NDU_SYNC_SCORERS !== "0";
+  const syncMatchScorersFlag =
+    options.syncScorers ?? process.env.NDU_SYNC_MATCH_SCORERS === "1";
   const scorerLimit =
     options.scorerLimit ??
     parseInt(process.env.NDU_SCORER_LIMIT ?? String(DEFAULT_SCORER_LIMIT), 10);
@@ -290,9 +363,17 @@ export async function runFullScrape(options: ScrapeOptions = {}) {
   let totalCreated = 0;
   let totalUpdated = 0;
   let scorersSynced = 0;
+  let athleticsSynced = 0;
+  let statsSynced = 0;
+  let boletimMatches = 0;
+  let boletimTitle: string | null = null;
 
   try {
-    const { parseNduJogosPage, modalityToSportSlug } = await import("./parser");
+    const { parseNduJogosPage } = await import("./parser");
+    const { syncNduAthletics } = await import("./athletics-sync");
+    const { parseBoletimMatches } = await import("./boletim-sync");
+    const { syncNduStats } = await import("./stats-sync");
+
     const sportRows = await db.select().from(sports);
     const sportBySlug = new Map(sportRows.map((s) => [s.slug, s]));
 
@@ -305,65 +386,51 @@ export async function runFullScrape(options: ScrapeOptions = {}) {
     const year = activeSeason?.year ?? new Date().getFullYear();
     const seasonId = activeSeason?.id ?? null;
 
-    const html = await fetchAllNduJogosHtml();
-    const allRows = parseNduJogosPage(html);
-
-    const finishedForScorers: {
-      matchId: string;
-      nduMatchId: string;
-      isBasketball: boolean;
-    }[] = [];
-
-    for (const row of allRows) {
-      const slug = modalityToSportSlug(row.modality);
-      if (!slug || !["futebol", "futsal", "basquete"].includes(slug)) continue;
-
-      const sport = sportBySlug.get(slug);
-      if (!sport) continue;
-
-      try {
-        const result = await upsertMatchRow(
-          row,
-          sport.id,
-          slug,
-          year,
-          seasonId
-        );
-        if (result.created) totalCreated++;
-        if (result.updated) totalUpdated++;
-
-        if (
-          syncScorers &&
-          row.nduMatchId &&
-          row.isFinished &&
-          row.homeScore != null
-        ) {
-          finishedForScorers.push({
-            matchId: result.matchId,
-            nduMatchId: row.nduMatchId,
-            isBasketball: slug === "basquete",
-          });
-        }
-      } catch (e) {
-        errors.push(
-          `${slug}/${row.nduMatchId ?? row.dateLabel}: ${e instanceof Error ? e.message : String(e)}`
-        );
-      }
+    try {
+      athleticsSynced = await syncNduAthletics();
+    } catch (e) {
+      errors.push(
+        `athletics: ${e instanceof Error ? e.message : String(e)}`
+      );
     }
 
-    for (const item of finishedForScorers.slice(0, scorerLimit)) {
-      try {
-        await syncMatchScorers(
-          item.matchId,
-          item.nduMatchId,
-          item.isBasketball
-        );
-        scorersSynced++;
-      } catch (e) {
-        errors.push(
-          `scorers/${item.nduMatchId}: ${e instanceof Error ? e.message : String(e)}`
-        );
+    let allRows: ParsedMatchRow[] = [];
+
+    try {
+      const boletim = await parseBoletimMatches(year);
+      if (boletim) {
+        boletimMatches = boletim.rows.length;
+        boletimTitle = boletim.title;
+        allRows = [...boletim.rows];
       }
+    } catch (e) {
+      errors.push(`boletim: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    try {
+      const html = await fetchAllNduJogosHtml();
+      const jogosRows = parseNduJogosPage(html);
+      allRows = [...allRows, ...jogosRows];
+    } catch (e) {
+      errors.push(`jogos: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    const ingest = await ingestMatchRows(
+      allRows,
+      sportBySlug,
+      year,
+      seasonId,
+      errors,
+      { syncMatchScorers: syncMatchScorersFlag, scorerLimit }
+    );
+    totalCreated += ingest.totalCreated;
+    totalUpdated += ingest.totalUpdated;
+    scorersSynced += ingest.scorersSynced;
+
+    try {
+      statsSynced = await syncNduStats(year);
+    } catch (e) {
+      errors.push(`stats: ${e instanceof Error ? e.message : String(e)}`);
     }
 
     await db
@@ -381,11 +448,11 @@ export async function runFullScrape(options: ScrapeOptions = {}) {
       created: totalCreated,
       updated: totalUpdated,
       total: allRows.length,
-      parsed: allRows.filter((r) =>
-        ["futebol", "futsal", "basquete"].includes(
-          modalityToSportSlug(r.modality) ?? ""
-        )
-      ).length,
+      parsed: allRows.length,
+      boletimMatches,
+      boletimTitle,
+      athleticsSynced,
+      statsSynced,
       scorersSynced,
       errors,
     };

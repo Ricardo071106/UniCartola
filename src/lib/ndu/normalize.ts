@@ -17,5 +17,12 @@ export function modalityToSportSlug(modality: string): string | null {
 
 export function normalizeLogoUrl(url?: string): string | undefined {
   if (!url) return undefined;
+  if (url.startsWith("/atleticas/")) {
+    return `https://www.ndu.net.br${url}`;
+  }
   return url.replace(/^http:\/\//i, "https://");
+}
+
+export function nduLogoUrl(athleticId: number | string): string {
+  return `https://www.ndu.net.br/atleticas/${athleticId}/logo_thumb.jpg`;
 }

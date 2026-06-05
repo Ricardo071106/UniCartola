@@ -79,7 +79,7 @@ async function main() {
   console.log("[bootstrap] Sincronizando dados da NDU...");
   const result = await runFullScrape();
   console.log(
-    `[bootstrap] NDU: ${result.parsed ?? result.total} jogos parseados, ${result.created} criados, ${result.updated} atualizados, ${result.scorersSynced ?? 0} artilheiros`
+    `[bootstrap] NDU: ${result.athleticsSynced ?? 0} atléticas, ${result.boletimMatches ?? 0} jogos do boletim${result.boletimTitle ? ` (${result.boletimTitle})` : ""}, ${result.parsed ?? result.total} total, ${result.created} criados, ${result.statsSynced ?? 0} artilheiros/estatísticas`
   );
   if (result.errors.length) {
     console.warn("[bootstrap] Erros:", result.errors.slice(0, 5));
