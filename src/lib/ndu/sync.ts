@@ -258,7 +258,7 @@ async function upsertMatchRow(
     .where(eq(matches.externalKey, externalKey))
     .limit(1);
 
-  if (!existing[0]) {
+  if (!existing[0] && row.nduMatchId) {
     const duplicate = await findDuplicateMatch(
       sportId,
       row,

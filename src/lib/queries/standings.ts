@@ -5,18 +5,9 @@ import {
   universities,
   athletics,
 } from "@/lib/db/schema";
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
-const PLAYOFF_PHASES = [
-  "Oitavas",
-  "Quartas",
-  "Semi",
-  "Final",
-  "8ªs",
-  "4ªs",
-  "8as",
-  "4as",
-];
+import { isPlayoffPhase } from "@/lib/ndu/playoff-phases";
 import type { SportSlug, StandingsEntry } from "@/types";
 
 const SERIES = ["A", "B", "C", "D", "E", "F"] as const;
@@ -37,23 +28,18 @@ export async function getStandingsBySeries(
 
   if (!sport) return [];
 
-  const finished = await db
+  const finishedRows = await db
     .select()
     .from(matches)
     .where(
       and(
         eq(matches.sportId, sport.id),
         eq(matches.series, series),
-        eq(matches.status, "finished"),
-        or(
-          sql`${matches.groupName} IS NULL`,
-          sql`lower(${matches.groupName}) NOT IN (${sql.join(
-            PLAYOFF_PHASES.map((p) => sql`lower(${p})`),
-            sql`, `
-          )})`
-        )
+        eq(matches.status, "finished")
       )
     );
+
+  const finished = finishedRows.filter((m) => !isPlayoffPhase(m.groupName));
 
   if (finished.length === 0) return [];
 

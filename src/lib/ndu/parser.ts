@@ -5,7 +5,7 @@ import {
   modalityToSportSlug,
   normalizeLogoUrl,
 } from "./normalize";
-import { normalizePlayoffPhase } from "./boletim-parser";
+import { normalizePlayoffPhase } from "./playoff-phases";
 
 export { normalizeTeamName, modalityToSportSlug };
 

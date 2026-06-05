@@ -25,13 +25,17 @@ const PLAYOFF_PHASE_RE = /(8ªs|4ªs|Semi|Final)/i;
 const PLAYOFF_END_RE =
   /\n(?:Handebol|Vôlei|Futebol de Campo Masculino|Basquete Masculino|Futsal Masculino)\s+(?:\(Série|Feminino|Masculino)/i;
 
-export function normalizePlayoffPhase(raw: string): string {
-  const t = raw.toLowerCase().replace(/\s/g, "");
-  if (t.includes("8") || t === "oitavas") return "Oitavas";
-  if (t.includes("4") || t === "quartas") return "Quartas";
-  if (t.startsWith("semi")) return "Semi";
-  if (t.startsWith("final")) return "Final";
-  return raw;
+import { normalizePlayoffPhase } from "./playoff-phases";
+
+export { normalizePlayoffPhase, isPlayoffPhase } from "./playoff-phases";
+
+function isGroupStageSectionMatch(text: string, index: number): boolean {
+  const prefix = text.slice(Math.max(0, index - 20), index);
+  return (
+    /Classificação\s+–\s*$/i.test(prefix) ||
+    /Aproveitamento\s+–\s*$/i.test(prefix) ||
+    /Playoffs\s+–\s*$/i.test(prefix)
+  );
 }
 
 export function parseBoletimIndex(html: string, year = 2026): BoletimEntry[] {
@@ -97,6 +101,7 @@ function stripPlayoffNoise(text: string, stripPhase = false): string {
     .replace(/\s*Pênaltis:\s*[\d]+\s*x\s*[\d]+/gi, "")
     .replace(/Playoffs\s+[–-].*$/gi, "")
     .replace(/\bVencedor\s+(?:das\s+|da\s+)?(?:4ªs|8ªs)\s*\(\d+\)\s*/gi, "")
+    .replace(/\bVencedor\s+das\s+4ªs\s*\(\d+\)\s*/gi, "")
     .replace(/\bVencedor\s+(?:da\s+)?semifinal\s*\d*\s*/gi, "")
     .replace(/\bPerdedor\s+(?:da\s+)?semifinal\s*\d*\s*/gi, "")
     .replace(/\s*\(\d+\)/g, "")
@@ -186,6 +191,11 @@ function mergePlayoffLines(chunk: string): string[] {
       current = "";
       continue;
     }
+    if (/^Final$/i.test(t)) {
+      if (current) records.push(current);
+      current = "";
+      continue;
+    }
     if (/^3º e/i.test(t)) break;
 
     if (/^\d{2}\/\d{2}/.test(t)) {
@@ -222,12 +232,8 @@ function extractPlayoffChunk(
 
   const chunkStart = fromIndex + header.index + header[0].length;
   const rest = text.slice(chunkStart);
-  const repeatHeader = rest.search(/\nPlayoffs\s+[–-]/i);
   const sportEnd = rest.search(PLAYOFF_END_RE);
-  let end = rest.length;
-  if (repeatHeader > 0) end = Math.min(end, repeatHeader);
-  if (sportEnd > 0) end = Math.min(end, sportEnd);
-  return rest.slice(0, end);
+  return sportEnd === -1 ? rest : rest.slice(0, sportEnd);
 }
 
 function pushRow(
@@ -250,6 +256,10 @@ export function parseBoletimPdfText(text: string): ParsedMatchRow[] {
     let m: RegExpExecArray | null;
 
     while ((m = re.exec(text)) !== null) {
+      if (m.index === undefined || isGroupStageSectionMatch(text, m.index)) {
+        continue;
+      }
+
       const series = m[1].toUpperCase();
       const start = m.index + m[0].length;
 
