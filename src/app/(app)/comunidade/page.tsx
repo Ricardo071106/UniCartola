@@ -20,13 +20,13 @@ export default async function ComunidadePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Comunidade</h1>
-        <p className="text-sm text-gray-500">
-          Rivalidade saudável entre faculdades
+        <h1 className="text-2xl font-bold text-white">Comunidade</h1>
+        <p className="text-sm text-zinc-500">
+          Debata jogos, palpites e resultados
         </p>
       </div>
 
-      <CreatePostForm />
+      <CreatePostForm isLoggedIn={!!session} />
 
       <div className="space-y-4">
         {postsWithComments.map(({ post, comments }) => (

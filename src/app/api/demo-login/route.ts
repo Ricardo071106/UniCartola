@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     (await request.formData()).get("userId");
 
   if (!userId || typeof userId !== "string") {
-    return NextResponse.redirect(new URL("/onboarding", request.url));
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   try {
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     if (!user) {
-      return NextResponse.redirect(new URL("/onboarding", request.url));
+      return NextResponse.redirect(new URL("/login", request.url));
     }
 
     await createSession({
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.redirect(new URL("/", request.url));
   } catch {
-    return NextResponse.redirect(new URL("/onboarding", request.url));
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 }
 

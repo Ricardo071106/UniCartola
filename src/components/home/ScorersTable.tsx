@@ -3,10 +3,10 @@ import { cn } from "@/lib/utils";
 import type { ScorerEntry } from "@/types";
 
 function rankBadge(rank: number) {
-  if (rank === 1) return { bg: "bg-[#e8a317]", label: "🥇" };
-  if (rank === 2) return { bg: "bg-[#9aa3a0]", label: "🥈" };
-  if (rank === 3) return { bg: "bg-[#c47d2a]", label: "🥉" };
-  return { bg: "bg-[#e8f5ee]", label: String(rank) };
+  if (rank === 1) return { label: "🥇" };
+  if (rank === 2) return { label: "🥈" };
+  if (rank === 3) return { label: "🥉" };
+  return { label: String(rank) };
 }
 
 export function ScorersTable({
@@ -21,7 +21,7 @@ export function ScorersTable({
     return (
       <div className="py-12 text-center">
         <p className="text-3xl">👟</p>
-        <p className="mt-2 text-sm font-semibold text-[#5c6b5f]">
+        <p className="mt-2 text-sm font-semibold text-zinc-500">
           Nenhum registro nesta série ainda
         </p>
       </div>
@@ -33,7 +33,6 @@ export function ScorersTable({
 
   return (
     <div className="p-4">
-      {/* Pódio top 3 — estilo Cartola */}
       {top3.length > 0 && (
         <div className="mb-4 grid grid-cols-3 items-end gap-2">
           {[top3[1], top3[0], top3[2]].filter(Boolean).map((e) => {
@@ -44,8 +43,8 @@ export function ScorersTable({
               <div
                 key={e.playerName}
                 className={cn(
-                  "flex flex-col items-center rounded-2xl bg-[#f4f6f4] p-3 text-center",
-                  isFirst && "order-2 -mt-2 bg-[#e8f5ee] ring-2 ring-[#006b3f]/20"
+                  "flex flex-col items-center rounded-2xl bg-zinc-900 p-3 text-center",
+                  isFirst && "-mt-2 bg-zinc-800 ring-2 ring-[#006b3f]/50"
                 )}
               >
                 <span className="text-xl">{badge.label}</span>
@@ -63,11 +62,11 @@ export function ScorersTable({
                     {e.teamName.slice(0, 2).toUpperCase()}
                   </div>
                 )}
-                <p className="mt-2 line-clamp-2 text-xs font-bold leading-tight text-[#1a1a1a]">
+                <p className="mt-2 line-clamp-2 text-xs font-bold leading-tight text-white">
                   {e.playerName}
                 </p>
-                <p className="mt-0.5 text-[10px] text-[#5c6b5f]">{e.teamName}</p>
-                <p className="mt-1 text-lg font-black text-[#006b3f]">
+                <p className="mt-0.5 text-[10px] text-zinc-500">{e.teamName}</p>
+                <p className="mt-1 text-lg font-black text-[#00a86b]">
                   {e.total}
                   <span className="ml-0.5 text-[10px] font-semibold">{unit}</span>
                 </p>
@@ -77,15 +76,14 @@ export function ScorersTable({
         </div>
       )}
 
-      {/* Restante */}
       {rest.length > 0 && (
         <ul className="space-y-1">
           {rest.map((e) => (
             <li
               key={`${e.playerName}-${e.teamName}`}
-              className="flex items-center gap-3 rounded-xl bg-[#fafcfa] px-3 py-2.5 hover:bg-[#e8f5ee]"
+              className="flex items-center gap-3 rounded-xl bg-zinc-900 px-3 py-2.5 hover:bg-zinc-800"
             >
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e8f5ee] text-xs font-bold text-[#5c6b5f]">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-xs font-bold text-zinc-400">
                 {e.rank}
               </span>
               {e.logoUrl ? (
@@ -98,25 +96,23 @@ export function ScorersTable({
                   unoptimized
                 />
               ) : (
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#006b3f]/10 text-[9px] font-bold text-[#006b3f]">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#006b3f]/30 text-[9px] font-bold text-[#00a86b]">
                   {e.teamName.slice(0, 2).toUpperCase()}
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-[#1a1a1a]">
+                <p className="truncate text-sm font-bold text-white">
                   {e.playerName}
                 </p>
-                <p className="truncate text-xs text-[#5c6b5f]">{e.teamName}</p>
+                <p className="truncate text-xs text-zinc-500">{e.teamName}</p>
               </div>
-              <span className="text-sm font-black text-[#006b3f]">
+              <span className="text-sm font-black text-[#00a86b]">
                 {e.total} {unit}
               </span>
             </li>
           ))}
         </ul>
       )}
-
-      {/* Só top 3 */}
     </div>
   );
 }

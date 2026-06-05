@@ -3,6 +3,8 @@ import type { NextRequest } from "next/server";
 
 const COOKIE_NAME = "campus_league_session";
 
+const AUTH_PAGES = ["/login", "/cadastro", "/onboarding"];
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -14,18 +16,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (
-    pathname === "/" ||
-    pathname.startsWith("/onboarding") ||
-    pathname.startsWith("/api")
-  ) {
+  if (pathname.startsWith("/api") || AUTH_PAGES.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
   const token = request.cookies.get(COOKIE_NAME)?.value;
 
-  if (!token) {
-    return NextResponse.redirect(new URL("/onboarding", request.url));
+  if (pathname.startsWith("/perfil") && !token) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   return NextResponse.next();

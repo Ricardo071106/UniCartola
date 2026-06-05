@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PerfilPage() {
   const session = await getSession();
-  if (!session) redirect("/onboarding");
+  if (!session) redirect("/login");
 
   const [profile, achievements, notifications] = await Promise.all([
     getUserProfile(session.userId),
@@ -19,21 +19,21 @@ export default async function PerfilPage() {
     getUserNotifications(session.userId, 10),
   ]);
 
-  if (!profile) redirect("/onboarding");
+  if (!profile) redirect("/cadastro");
 
   const earned = achievements.filter((a) => a.earned);
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Perfil</h1>
-        <p className="text-sm text-gray-500">Suas estatísticas e conquistas</p>
+        <h1 className="text-2xl font-bold text-white">Perfil</h1>
+        <p className="text-sm text-zinc-500">Suas estatísticas e conquistas</p>
       </div>
 
       <ProfileCard profile={profile} />
 
       <section>
-        <h2 className="text-lg font-bold text-gray-900 mb-3">
+        <h2 className="mb-3 text-lg font-bold text-white">
           Conquistas ({earned.length}/{achievements.length})
         </h2>
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
@@ -44,7 +44,7 @@ export default async function PerfilPage() {
       </section>
 
       <section>
-        <h2 className="text-lg font-bold text-gray-900 mb-3">Notificações</h2>
+        <h2 className="mb-3 text-lg font-bold text-white">Notificações</h2>
         <div className="space-y-2">
           {notifications.map((n) => (
             <NotificationCard
@@ -58,7 +58,7 @@ export default async function PerfilPage() {
             />
           ))}
           {notifications.length === 0 && (
-            <p className="text-sm text-gray-500 text-center py-6">
+            <p className="py-6 text-center text-sm text-zinc-500">
               Nenhuma notificação ainda
             </p>
           )}

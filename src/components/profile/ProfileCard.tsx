@@ -24,36 +24,17 @@ export function ProfileCard({ profile }: ProfileCardProps) {
             <AvatarFallback label={profile.nickname} className="text-lg" />
           </Avatar>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">
-              {profile.nickname}
-            </h2>
-            {profile.university && (
-              <p className="text-sm text-[#1e3a5f] font-semibold">
-                {profile.university.name}
-              </p>
-            )}
-            <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-500">
-              {profile.course && <span>{profile.course.name}</span>}
-              {profile.athletics && (
-                <span>· {profile.athletics.name}</span>
-              )}
-            </div>
+            <h2 className="text-xl font-bold text-white">{profile.nickname}</h2>
+            <p className="text-sm text-zinc-500">Membro UniCartola</p>
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <StatBox label="Palpites" value={profile.totalPredictions} />
           <StatBox label="Acertos" value={profile.correctPredictions} />
           <StatBox label="Taxa" value={`${accuracy}%`} positive />
           <StatBox label="Sequência" value={profile.currentStreak} positive />
-          <StatBox
-            label="Ranking geral"
-            value={`#${profile.generalRank}`}
-          />
-          <StatBox
-            label="Na faculdade"
-            value={`#${profile.universityRank}`}
-          />
+          <StatBox label="Ranking geral" value={`#${profile.generalRank}`} />
           <StatBox label="Pontos totais" value={profile.totalPoints} />
           <StatBox label="Semana" value={profile.weeklyPoints} positive />
         </div>
@@ -72,13 +53,13 @@ function StatBox({
   positive?: boolean;
 }) {
   return (
-    <div className="rounded-lg bg-gray-50 p-3 text-center">
+    <div className="rounded-lg bg-zinc-900 p-3 text-center ring-1 ring-zinc-800">
       <p
-        className={`text-lg font-bold ${positive ? "text-emerald-600" : "text-gray-900"}`}
+        className={`text-lg font-bold ${positive ? "text-[#00a86b]" : "text-white"}`}
       >
         {value}
       </p>
-      <p className="text-[10px] uppercase tracking-wide text-gray-500">
+      <p className="text-[10px] uppercase tracking-wide text-zinc-500">
         {label}
       </p>
     </div>

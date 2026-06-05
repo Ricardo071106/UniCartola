@@ -47,7 +47,6 @@ export function HomeDashboard({
 
   return (
     <div className="space-y-5">
-      {/* Esportes — topo, lado a lado */}
       <section className="cartola-card overflow-hidden p-1">
         <div className="grid grid-cols-3 gap-1">
           {SPORTS.map((s) => {
@@ -60,8 +59,8 @@ export function HomeDashboard({
                 className={cn(
                   "flex flex-col items-center gap-1.5 rounded-xl px-2 py-4 transition-all",
                   active
-                    ? "bg-[#006b3f] text-white shadow-inner"
-                    : "bg-[#f4f6f4] text-[#5c6b5f] hover:bg-[#e8f5ee]"
+                    ? "bg-[#006b3f] text-white"
+                    : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
                 )}
               >
                 <span className="text-2xl">{s.emoji}</span>
@@ -74,18 +73,14 @@ export function HomeDashboard({
         </div>
       </section>
 
-      {/* Classificação + séries */}
       <section className="cartola-card overflow-hidden">
-        <div className="border-b border-[#dce5dc] bg-[#e8f5ee] px-4 py-3">
-          <h2 className="text-base font-black text-[#004d2c]">
-            Classificação
-          </h2>
-          <p className="text-xs font-medium text-[#5c6b5f]">
+        <div className="border-b border-zinc-800 bg-zinc-900 px-4 py-3">
+          <h2 className="text-base font-black text-white">Classificação</h2>
+          <p className="text-xs font-medium text-zinc-500">
             Vitórias · {sportLabel}
           </p>
         </div>
 
-        {/* Séries A–F */}
         <div className="flex gap-2 overflow-x-auto px-4 py-3 scrollbar-none">
           {SERIES.map((s) => {
             const active = series === s;
@@ -110,13 +105,12 @@ export function HomeDashboard({
         </div>
       </section>
 
-      {/* Artilheiros / Pontuadores */}
       <section className="cartola-card overflow-hidden">
-        <div className="border-b border-[#dce5dc] bg-[#e8f5ee] px-4 py-3">
-          <h2 className="text-base font-black text-[#004d2c]">
+        <div className="border-b border-zinc-800 bg-zinc-900 px-4 py-3">
+          <h2 className="text-base font-black text-white">
             {isBasketball ? "Maiores Pontuadores" : "Artilheiros"}
           </h2>
-          <p className="text-xs font-medium text-[#5c6b5f]">
+          <p className="text-xs font-medium text-zinc-500">
             {sportLabel} · Série {series}
           </p>
         </div>

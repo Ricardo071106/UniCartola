@@ -25,11 +25,10 @@ export function AppShell({
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-[#eef2ee]">
+    <div className="min-h-screen bg-black">
       <AppHeader session={session} />
 
-      {/* Nav desktop — estilo Cartola */}
-      <nav className="hidden border-b border-[#dce5dc] bg-white md:block">
+      <nav className="hidden border-b border-zinc-800 bg-zinc-950 md:block">
         <div className="mx-auto flex max-w-5xl gap-1 px-4 py-2">
           {navItems.map((item) => {
             const active =
@@ -43,7 +42,7 @@ export function AppShell({
                   "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-colors",
                   active
                     ? "bg-[#006b3f] text-white"
-                    : "text-[#5c6b5f] hover:bg-[#e8f5ee] hover:text-[#006b3f]"
+                    : "text-zinc-500 hover:bg-zinc-900 hover:text-white"
                 )}
               >
                 <item.icon className="h-4 w-4" />
@@ -58,8 +57,7 @@ export function AppShell({
         {children}
       </main>
 
-      {/* Bottom nav mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#dce5dc] bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.06)] md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-800 bg-zinc-950 md:hidden">
         <div className="mx-auto flex max-w-lg items-center justify-around px-1 py-1.5 safe-area-pb">
           {navItems.map((item) => {
             const active =
@@ -71,7 +69,7 @@ export function AppShell({
                 href={item.href}
                 className={cn(
                   "flex flex-col items-center gap-0.5 rounded-lg px-3 py-1 text-[10px] font-bold",
-                  active ? "text-[#006b3f]" : "text-[#9aa3a0]"
+                  active ? "text-[#00a86b]" : "text-zinc-600"
                 )}
               >
                 <item.icon

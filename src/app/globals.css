@@ -3,21 +3,16 @@
 @tailwind utilities;
 
 :root {
-  --background: #eef2ee;
-  --foreground: #1a1a1a;
-  --card: #ffffff;
-  --muted: #f4f6f4;
-  --muted-foreground: #5c6b5f;
-  --border: #dce5dc;
+  --background: #000000;
+  --foreground: #f4f4f5;
+  --card: #111111;
+  --card-hover: #1a1a1a;
+  --muted: #181818;
+  --muted-foreground: #a1a1aa;
+  --border: #27272a;
   --cartola-green: #006b3f;
-  --cartola-green-dark: #004d2c;
   --cartola-green-light: #00a86b;
-  --cartola-green-pale: #e8f5ee;
-  --primary: var(--cartola-green);
-  --success: #00a86b;
-  --gold: #e8a317;
-  --silver: #9aa3a0;
-  --bronze: #c47d2a;
+  --primary: var(--cartola-green-light);
 }
 
 body {
@@ -33,11 +28,11 @@ body {
 
 @layer components {
   .cartola-header {
-    background: linear-gradient(135deg, var(--cartola-green-dark) 0%, var(--cartola-green) 55%, var(--cartola-green-light) 100%);
+    background: linear-gradient(135deg, #000000 0%, #0a1f14 50%, #006b3f 100%);
   }
 
   .cartola-card {
-    @apply rounded-2xl border border-[#dce5dc] bg-white shadow-sm;
+    @apply rounded-2xl border border-zinc-800 bg-zinc-950 shadow-lg;
   }
 
   .cartola-pill {
@@ -49,6 +44,6 @@ body {
   }
 
   .cartola-pill-inactive {
-    @apply bg-white text-[#5c6b5f] hover:bg-[#e8f5ee];
+    @apply bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white;
   }
 }
