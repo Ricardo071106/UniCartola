@@ -5,6 +5,7 @@ import { requireDb } from "@/lib/db";
 import { marketPredictions, sports, users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { getCurrencyMode } from "@/lib/currency/server";
+import { requireRealEntryPaid } from "@/lib/currency/real-entry";
 import { DEFAULT_STAKE, type CurrencyMode } from "@/lib/currency/mode";
 import { and, eq } from "drizzle-orm";
 import type { SportSlug } from "@/types";
@@ -50,6 +51,9 @@ export async function submitMarketPrediction(data: {
     const session = await requireSession();
     const db = requireDb();
     const currencyMode = await getCurrencyMode();
+    if (currencyMode === "real") {
+      await requireRealEntryPaid(session.userId);
+    }
 
     const [sport] = await db
       .select()

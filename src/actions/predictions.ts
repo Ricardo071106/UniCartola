@@ -6,6 +6,7 @@ import { predictions, matches, users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { getCurrencyMode } from "@/lib/currency/server";
 import { DEFAULT_STAKE } from "@/lib/currency/mode";
+import { requireRealEntryPaid } from "@/lib/currency/real-entry";
 import { and, eq, sql } from "drizzle-orm";
 import type { PredictionResult } from "@/types";
 
@@ -47,6 +48,9 @@ export async function submitPrediction(data: {
     const session = await requireSession();
     const db = requireDb();
     const currencyMode = await getCurrencyMode();
+    if (currencyMode === "real") {
+      await requireRealEntryPaid(session.userId);
+    }
 
     const [match] = await db
       .select()

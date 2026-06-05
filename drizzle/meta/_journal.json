@@ -43,6 +43,13 @@
       "when": 1780622103000,
       "tag": "0005_currency_palpites",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1780622104000,
+      "tag": "0006_stripe_real_entry",
+      "breakpoints": true
     }
   ]
 }

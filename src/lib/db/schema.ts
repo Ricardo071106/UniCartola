@@ -151,6 +151,9 @@ export const users = pgTable(
     playBalance: integer("play_balance").default(10000).notNull(),
     realBalance: integer("real_balance").default(0).notNull(),
     realPoints: integer("real_points").default(0).notNull(),
+    realEntryPaid: boolean("real_entry_paid").default(false).notNull(),
+    realEntryPaidAt: timestamp("real_entry_paid_at"),
+    stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -261,6 +264,12 @@ export const players = pgTable(
   },
   (t) => [index("players_normalized_idx").on(t.normalizedName)]
 );
+
+export const syncMetadata = pgTable("sync_metadata", {
+  key: varchar("key", { length: 64 }).primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
 
 export const scrapeRuns = pgTable("scrape_runs", {
   id: uuid("id").primaryKey().defaultRandom(),

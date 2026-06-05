@@ -3,7 +3,7 @@ import { athletics, matches, nduScorerStats, sports } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { NDU_MODALITY_IDS } from "./constants";
 import { fetchNduStatsFragment } from "./fetch";
-import { parseNduStatsPage } from "./stats-parser";
+import { parseNduCardStatsPage, parseNduStatsPage } from "./stats-parser";
 
 const SERIES = ["A", "B", "C", "D", "E", "F"] as const;
 
@@ -129,6 +129,40 @@ export async function syncNduStats(year = 2026): Promise<number> {
             seasonYear: year,
           });
           saved++;
+        }
+
+        if (!job.isBasketball) {
+          const cardPlayers = parseNduCardStatsPage(html);
+          if (cardPlayers.length > 0) {
+            await db
+              .delete(nduScorerStats)
+              .where(
+                and(
+                  eq(nduScorerStats.sportSlug, job.sportSlug),
+                  eq(nduScorerStats.series, series),
+                  eq(nduScorerStats.statType, "cards"),
+                  eq(nduScorerStats.seasonYear, year)
+                )
+              );
+
+            for (const s of cardPlayers) {
+              const ath = s.athleticNduId
+                ? byNduId.get(s.athleticNduId)
+                : undefined;
+              await db.insert(nduScorerStats).values({
+                sportSlug: job.sportSlug,
+                series,
+                playerName: s.playerName,
+                athleticNduId: s.athleticNduId,
+                teamName: ath?.name ?? null,
+                logoUrl: s.logoUrl ?? ath?.logoUrl ?? null,
+                total: s.total,
+                statType: "cards",
+                seasonYear: year,
+              });
+              saved++;
+            }
+          }
         }
       } catch {
         /* série/modalidade sem dados */

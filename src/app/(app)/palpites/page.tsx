@@ -1,15 +1,19 @@
 import { Suspense } from "react";
+import { after } from "next/server";
 import { PalpitesClient } from "./PalpitesClient";
 import { getMatchesByFilter } from "@/lib/queries/matches";
 import { getUserMarketPredictions } from "@/lib/queries/market-predictions";
 import { getUserPredictionsForMatches } from "@/lib/queries/predictions";
+import {
+  getCardPlayerOptions,
+  getScorerOptions,
+  getSeriesTeamOptions,
+} from "@/lib/queries/palpites-options";
 import { parseSeries, parseSport } from "@/lib/queries/standings";
 import { getUserBalances } from "@/lib/queries/user-balances";
 import { getSession } from "@/lib/auth/session";
 import { getCurrencyMode } from "@/lib/currency/server";
 import { safeQuery } from "@/lib/db/safe-query";
-import { requireDb } from "@/lib/db";
-import { athletics } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -22,23 +26,29 @@ export default async function PalpitesPage({
   const sport = parseSport(params.sport);
   const series = parseSeries(params.series);
 
+  after(() => {
+    import("@/lib/ndu/boletim-watch")
+      .then(({ syncIfNewBoletim }) => syncIfNewBoletim())
+      .catch((error) => console.error("[palpites] sync boletim:", error));
+  });
+
   const session = await getSession();
   const currencyMode = await getCurrencyMode();
 
-  const athleticRows = await safeQuery(async () => {
-    const db = requireDb();
-    return db
-      .select({ id: athletics.id, name: athletics.name })
-      .from(athletics)
-      .orderBy(athletics.name);
-  }, []);
+  const [teamOptions, scorerOptions, cardOptions] = await Promise.all([
+    safeQuery(() => getSeriesTeamOptions(sport, series), []),
+    safeQuery(() => getScorerOptions(sport, series), []),
+    safeQuery(() => getCardPlayerOptions(sport, series), []),
+  ]);
 
   let playBalance = 10000;
   let realBalance = 0;
+  let realEntryPaid = false;
   if (session) {
     const balances = await getUserBalances(session.userId);
     playBalance = balances.playBalance;
     realBalance = balances.realBalance;
+    realEntryPaid = balances.realEntryPaid;
   }
 
   const upcomingMatches = (
@@ -88,8 +98,9 @@ export default async function PalpitesPage({
       <div>
         <h1 className="text-2xl font-bold text-white">Palpites</h1>
         <p className="text-sm text-zinc-400">
-          Temporada e jogos futuros · modo{" "}
-          {currencyMode === "play" ? "fichas" : "dinheiro real"}
+          {currencyMode === "play"
+            ? "Ambiente gratuito · fichas virtuais"
+            : "Ambiente pago · dinheiro real"}
         </p>
       </div>
       <Suspense fallback={<p className="text-zinc-400">Carregando...</p>}>
@@ -99,8 +110,11 @@ export default async function PalpitesPage({
           currencyMode={currencyMode}
           playBalance={playBalance}
           realBalance={realBalance}
+          realEntryPaid={realEntryPaid}
           isLoggedIn={!!session}
-          athletics={athleticRows}
+          teamOptions={teamOptions}
+          scorerOptions={scorerOptions}
+          cardOptions={cardOptions}
           upcomingMatches={upcomingMatches}
           marketPredictions={marketPredictions}
           matchPredictions={matchPredictions}
