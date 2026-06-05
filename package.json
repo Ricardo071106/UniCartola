@@ -15,7 +15,8 @@
     "db:migrate": "tsx scripts/migrate-schema.ts",
     "build:render": "npm install --include=dev && npm run build",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "db:drop": "tsx scripts/drop-database.ts"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.11",
