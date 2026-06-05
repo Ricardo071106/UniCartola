@@ -68,5 +68,28 @@ export function parseNduMatchDateTime(
     }
   }
 
+  const ptMonthNames =
+    "jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez|janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro";
+  const ptDateTime = cleaned.match(
+    new RegExp(
+      `(?:\\w+\\.?,?\\s*)?(\\d{1,2})\\s+de\\s+(${ptMonthNames})\\.?(?:\\s*[·•-]\\s*(\\d{1,2}):(\\d{2}))?`,
+      "i"
+    )
+  );
+  if (ptDateTime) {
+    const day = parseInt(ptDateTime[1], 10);
+    const monthKey = ptDateTime[2]
+      .slice(0, 3)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase();
+    const month = MONTH_MAP[monthKey];
+    const hour = ptDateTime[3] ? parseInt(ptDateTime[3], 10) : 12;
+    const minute = ptDateTime[4] ? parseInt(ptDateTime[4], 10) : 0;
+    if (month !== undefined) {
+      return brazilDate(year, month, day, hour, minute);
+    }
+  }
+
   return null;
 }

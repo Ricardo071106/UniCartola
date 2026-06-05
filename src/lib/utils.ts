@@ -7,6 +7,39 @@ export function cn(...inputs: ClassValue[]) {
 
 const BR_TZ = "America/Sao_Paulo";
 
+function brazilDateParts(date: Date) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: BR_TZ,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+      .formatToParts(date)
+      .map((p) => [p.type, p.value])
+  );
+  return {
+    year: parts.year!,
+    month: parts.month!,
+    day: parts.day!,
+  };
+}
+
+export function startOfDayBrazil(date = new Date()): Date {
+  const { year, month, day } = brazilDateParts(date);
+  return new Date(`${year}-${month}-${day}T00:00:00-03:00`);
+}
+
+export function endOfDayBrazil(date = new Date()): Date {
+  const { year, month, day } = brazilDateParts(date);
+  return new Date(`${year}-${month}-${day}T23:59:59.999-03:00`);
+}
+
+export function addDaysBrazil(date: Date, days: number): Date {
+  const start = startOfDayBrazil(date);
+  return new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
 export function formatMatchTime(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return d.toLocaleTimeString("pt-BR", {

@@ -13,11 +13,15 @@ export default async function JogosPage({
   const sport = ["futebol", "futsal", "basquete"].includes(params.sport ?? "")
     ? (params.sport as SportSlug)
     : undefined;
-  const tab = ["today", "tomorrow", "week", "finished"].includes(
-    params.tab ?? ""
-  )
-    ? (params.tab as "today" | "tomorrow" | "week" | "finished")
-    : "today";
+  const tab = [
+    "upcoming",
+    "today",
+    "tomorrow",
+    "week",
+    "finished",
+  ].includes(params.tab ?? "")
+    ? (params.tab as "upcoming" | "today" | "tomorrow" | "week" | "finished")
+    : "upcoming";
 
   const matches = await getMatchesByFilter({ sport, tab });
 

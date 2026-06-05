@@ -9,6 +9,11 @@ import {
 import { eq, and, gte, lte, desc, asc, inArray } from "drizzle-orm";
 import type { MatchWithTeams, SportSlug } from "@/types";
 import { realMatchesOnly } from "./match-filters";
+import {
+  startOfDayBrazil,
+  endOfDayBrazil,
+  addDaysBrazil,
+} from "@/lib/utils";
 
 async function enrichMatches(
   raw: (typeof matches.$inferSelect)[]
@@ -162,32 +167,31 @@ export async function getRecentMatches(limit = 6): Promise<MatchWithTeams[]> {
   return enrichMatches(rows);
 }
 
-function startOfDay(d: Date) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-function endOfDay(d: Date) {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
-}
-
 export async function getMatchesByFilter(options: {
   sport?: SportSlug;
-  tab: "today" | "tomorrow" | "week" | "finished";
+  tab: "upcoming" | "today" | "tomorrow" | "week" | "finished";
 }): Promise<MatchWithTeams[]> {
   const db = requireDb();
   const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const weekEnd = new Date(now);
-  weekEnd.setDate(weekEnd.getDate() + 7);
+  const tomorrow = addDaysBrazil(now, 1);
+  const weekEnd = addDaysBrazil(now, 7);
 
   let rows;
 
-  if (options.tab === "finished") {
+  if (options.tab === "upcoming") {
+    rows = await db
+      .select()
+      .from(matches)
+      .where(
+        and(
+          realMatchesOnly(),
+          inArray(matches.status, ["scheduled", "live"]),
+          gte(matches.scheduledAt, startOfDayBrazil(now))
+        )
+      )
+      .orderBy(asc(matches.scheduledAt))
+      .limit(100);
+  } else if (options.tab === "finished") {
     rows = await db
       .select()
       .from(matches)
@@ -201,8 +205,8 @@ export async function getMatchesByFilter(options: {
       .where(
         and(
           realMatchesOnly(),
-          gte(matches.scheduledAt, startOfDay(now)),
-          lte(matches.scheduledAt, endOfDay(now))
+          gte(matches.scheduledAt, startOfDayBrazil(now)),
+          lte(matches.scheduledAt, endOfDayBrazil(now))
         )
       )
       .orderBy(asc(matches.scheduledAt));
@@ -213,8 +217,8 @@ export async function getMatchesByFilter(options: {
       .where(
         and(
           realMatchesOnly(),
-          gte(matches.scheduledAt, startOfDay(tomorrow)),
-          lte(matches.scheduledAt, endOfDay(tomorrow))
+          gte(matches.scheduledAt, startOfDayBrazil(tomorrow)),
+          lte(matches.scheduledAt, endOfDayBrazil(tomorrow))
         )
       )
       .orderBy(asc(matches.scheduledAt));
@@ -225,12 +229,13 @@ export async function getMatchesByFilter(options: {
       .where(
         and(
           realMatchesOnly(),
-          gte(matches.scheduledAt, now),
-          lte(matches.scheduledAt, weekEnd)
+          inArray(matches.status, ["scheduled", "live"]),
+          gte(matches.scheduledAt, startOfDayBrazil(now)),
+          lte(matches.scheduledAt, endOfDayBrazil(weekEnd))
         )
       )
       .orderBy(asc(matches.scheduledAt))
-      .limit(50);
+      .limit(100);
   }
 
   const enriched = await enrichMatches(rows);

@@ -176,16 +176,38 @@ export function parseNduJogosPage(html: string): ParsedMatchRow[] {
 
     if (!dateLabel || /ainda não há|não há jogos|data/i.test(dateLabel)) return;
 
-    const imgs = [...partidaHtml.matchAll(/title="([^"]*)"[^>]*src="([^"]*)"/gi)];
-    const homeMeta = imgs[0];
-    const awayMeta = imgs[1];
+    const teamImgs: { title?: string; src?: string }[] = [];
+    for (const tag of partidaHtml.match(/<img[^>]*>/gi) ?? []) {
+      teamImgs.push({
+        title: tag.match(/title="([^"]*)"/i)?.[1],
+        src: tag.match(/src="([^"]*)"/i)?.[1],
+      });
+    }
+    const homeMeta = teamImgs[0];
+    const awayMeta = teamImgs[1];
     const venueMatch = partidaHtml.match(/local[:\s]*([^<]+)/i);
-    const homeLogoUrl = normalizeLogoUrl(homeMeta?.[2]);
-    const awayLogoUrl = normalizeLogoUrl(awayMeta?.[2]);
-    const homeTeamRaw = resolveTeamName(homeMeta?.[1], homeLogoUrl, athleticsMap);
-    const awayTeamRaw = resolveTeamName(awayMeta?.[1], awayLogoUrl, athleticsMap);
+    const homeLogoUrl = normalizeLogoUrl(homeMeta?.src);
+    const awayLogoUrl = normalizeLogoUrl(awayMeta?.src);
+    const homeTeamRaw = resolveTeamName(
+      homeMeta?.title,
+      homeLogoUrl,
+      athleticsMap
+    );
+    const awayTeamRaw = resolveTeamName(
+      awayMeta?.title,
+      awayLogoUrl,
+      athleticsMap
+    );
 
-    const dedupeKey = `${modality}:${series}:${dateLabel}:${homeTeamRaw}:${awayTeamRaw}`;
+    if (!homeTeamRaw && !awayTeamRaw) return;
+
+    const nduMatchId =
+      partidaHtml.match(/resultado\/(\d+)/i)?.[1] ??
+      extractNduMatchId($, $(tr));
+
+    const dedupeKey =
+      nduMatchId ??
+      `${modality}:${series}:${dateLabel}:${homeTeamRaw}:${awayTeamRaw}`;
     if (upcomingSeen.has(dedupeKey)) return;
     upcomingSeen.add(dedupeKey);
 
@@ -198,6 +220,7 @@ export function parseNduJogosPage(html: string): ParsedMatchRow[] {
       awayTeamRaw,
       homeLogoUrl,
       awayLogoUrl,
+      nduMatchId,
       isFinished: false,
       venue: venueMatch?.[1]?.trim(),
     });

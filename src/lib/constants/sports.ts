@@ -6,8 +6,7 @@ export const SPORT_ICONS: Record<
 > = {
   futsal: {
     label: "Futsal",
-    image:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Futsal_ball.svg/120px-Futsal_ball.svg.png",
+    image: "/icons/futsal-ball.svg",
   },
   futebol: {
     label: "Futebol",

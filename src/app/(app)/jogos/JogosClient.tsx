@@ -14,9 +14,10 @@ const sports: { slug: SportSlug | "all"; label: string }[] = [
 ];
 
 const tabs = [
+  { id: "upcoming", label: "Próximos" },
   { id: "today", label: "Hoje" },
   { id: "tomorrow", label: "Amanhã" },
-  { id: "week", label: "Próxima Semana" },
+  { id: "week", label: "Semana" },
   { id: "finished", label: "Encerrados" },
 ] as const;
 
@@ -74,9 +75,13 @@ export function JogosClient({
           updateParams(initialSport, v)
         }
       >
-        <TabsList className="w-full grid grid-cols-4">
+        <TabsList className="flex h-auto w-full gap-1 overflow-x-auto p-1">
           {tabs.map((t) => (
-            <TabsTrigger key={t.id} value={t.id} className="text-xs">
+            <TabsTrigger
+              key={t.id}
+              value={t.id}
+              className="shrink-0 text-xs px-3"
+            >
               {t.label}
             </TabsTrigger>
           ))}
@@ -88,7 +93,9 @@ export function JogosClient({
             ))}
             {initialMatches.length === 0 && (
               <p className="py-12 text-center text-sm text-zinc-400">
-                Nenhuma partida neste período
+                {initialTab === "upcoming"
+                  ? "Nenhum jogo agendado no momento"
+                  : "Nenhuma partida neste período"}
               </p>
             )}
           </div>

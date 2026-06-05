@@ -8,9 +8,13 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "UniCartola | Fantasy Universitário",
+  title: "Cartola | Campeonato Universitário",
   description:
-    "Palpites, rankings e comunidade para campeonatos universitários brasileiros.",
+    "Palpites, rankings e fórum para campeonatos universitários brasileiros.",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

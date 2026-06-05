@@ -9,18 +9,19 @@ export function AppHeader({ session }: { session: SessionPayload | null }) {
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center gap-3">
           <Image
-            src="/logo.svg"
-            alt="UniCartola"
-            width={40}
-            height={40}
-            className="h-10 w-10 rounded-xl ring-1 ring-[#00a86b]/40"
+            src="/logo.png"
+            alt="Cartola — Campeonato Universitário"
+            width={48}
+            height={48}
+            className="h-12 w-12 rounded-full object-cover ring-2 ring-[#c9a227]/50"
+            priority
           />
-          <div>
+          <div className="hidden sm:block">
             <p className="text-lg font-black leading-none tracking-tight text-white">
-              UniCartola
+              Cartola
             </p>
             <p className="text-[11px] font-medium text-zinc-400">
-              Fantasy Universitário
+              Campeonato Universitário
             </p>
           </div>
         </Link>
