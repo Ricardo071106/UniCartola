@@ -36,6 +36,82 @@ import {
   sql,
 } from "drizzle-orm";
 import { getCurrentStatsYear } from "../src/lib/ndu/stats-period";
+import { normalizeTeamName } from "../src/lib/ndu/normalize";
+
+async function detachDemoAthleticsFromMatches(
+  db: ReturnType<typeof requireDb>,
+  demoAthleticIds: string[]
+) {
+  if (!demoAthleticIds.length) return;
+
+  const nduAthletics = await db
+    .select()
+    .from(athletics)
+    .where(isNotNull(athletics.nduAthleticId));
+
+  const nduByNormalized = new Map<string, string>();
+  for (const a of nduAthletics) {
+    nduByNormalized.set(normalizeTeamName(a.name), a.id);
+    if (a.normalizedName) nduByNormalized.set(a.normalizedName, a.id);
+    if (a.nduAlias) nduByNormalized.set(normalizeTeamName(a.nduAlias), a.id);
+  }
+
+  const affected = await db
+    .select({
+      id: matches.id,
+      homeAthleticsId: matches.homeAthleticsId,
+      awayAthleticsId: matches.awayAthleticsId,
+      homeTeamName: matches.homeTeamName,
+      awayTeamName: matches.awayTeamName,
+    })
+    .from(matches)
+    .where(
+      or(
+        inArray(matches.homeAthleticsId, demoAthleticIds),
+        inArray(matches.awayAthleticsId, demoAthleticIds)
+      )
+    );
+
+  let remapped = 0;
+  for (const m of affected) {
+    const updates: {
+      homeAthleticsId?: string | null;
+      awayAthleticsId?: string | null;
+    } = {};
+
+    if (
+      m.homeAthleticsId &&
+      demoAthleticIds.includes(m.homeAthleticsId)
+    ) {
+      const replacement = m.homeTeamName
+        ? (nduByNormalized.get(normalizeTeamName(m.homeTeamName)) ?? null)
+        : null;
+      updates.homeAthleticsId = replacement;
+      if (replacement) remapped++;
+    }
+
+    if (
+      m.awayAthleticsId &&
+      demoAthleticIds.includes(m.awayAthleticsId)
+    ) {
+      const replacement = m.awayTeamName
+        ? (nduByNormalized.get(normalizeTeamName(m.awayTeamName)) ?? null)
+        : null;
+      updates.awayAthleticsId = replacement;
+      if (replacement) remapped++;
+    }
+
+    if (Object.keys(updates).length) {
+      await db.update(matches).set(updates).where(eq(matches.id, m.id));
+    }
+  }
+
+  if (affected.length) {
+    console.log(
+      `[cleanup] ${affected.length} jogos desvinculados de atléticas demo (${remapped} times remapeados para NDU)`
+    );
+  }
+}
 
 export const SEED_UNIVERSITY_SHORT_NAMES = [
   "FEI",
@@ -281,6 +357,7 @@ export async function cleanupDemoData(db: ReturnType<typeof requireDb>) {
     const demoAthleticIds = demoAthleticRows.map((r) => r.id);
 
     if (demoAthleticIds.length) {
+      await detachDemoAthleticsFromMatches(db, demoAthleticIds);
       await db
         .update(users)
         .set({ athleticsId: null })
