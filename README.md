@@ -68,7 +68,9 @@ O comando `npm install && npm run db:push && npm run build` funciona no Render: 
 
 ### Variáveis de ambiente
 
-- `DATABASE_URL` — PostgreSQL (Supabase: use **Session pooler**, porta 5432, ou Internal URL se Postgres for no Render)
+- `DATABASE_URL` — **Session pooler** do Supabase (porta **5432**). **Não** use Direct (`db.xxx.supabase.co`) — falha no Render.
+  - Supabase → Database → Connection string → **Session pooler** → URI
+  - Ou: `SUPABASE_PROJECT_REF` + `SUPABASE_POOLER_HOST` + `SUPABASE_DB_PASSWORD`
 - `SESSION_SECRET` — string longa aleatória
 - `NEXT_PUBLIC_APP_URL` — URL do app (ex: `https://seu-app.onrender.com`)
 
