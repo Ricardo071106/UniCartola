@@ -107,6 +107,7 @@ export async function fetchNduStatsFragment(
 
   return fetchNduHtml(NDU_STATS_MODALITY_URL, {
     method: "POST",
+    cache: "no-store",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Referer: NDU_STATS_URL,

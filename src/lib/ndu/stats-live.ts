@@ -8,15 +8,48 @@ import type { SportSlug } from "@/types";
 import type { SeriesLetter } from "@/lib/queries/standings";
 import type { PlayerOption } from "@/lib/queries/palpites-options";
 
-async function getSeasonYear(): Promise<number> {
-  const { seasons } = await import("@/lib/db/schema");
-  const db = requireDb();
-  const [active] = await db
-    .select()
-    .from(seasons)
-    .where(eq(seasons.isActive, true))
-    .limit(1);
-  return active?.year ?? new Date().getFullYear();
+async function getSeasonYear(): Promise<number | null> {
+  try {
+    const { seasons } = await import("@/lib/db/schema");
+    const db = requireDb();
+    const [active] = await db
+      .select()
+      .from(seasons)
+      .where(eq(seasons.isActive, true))
+      .limit(1);
+    return active?.year ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function yearsToTry(): Promise<number[]> {
+  const years = new Set<number>();
+  const seasonYear = await getSeasonYear();
+  if (seasonYear != null) years.add(seasonYear);
+  const current = new Date().getFullYear();
+  years.add(current);
+  years.add(current - 1);
+  return [...years];
+}
+
+async function loadTeamNames(): Promise<Map<number, string>> {
+  try {
+    const db = requireDb();
+    const athleticRows = await db
+      .select({
+        nduAthleticId: athletics.nduAthleticId,
+        name: athletics.name,
+      })
+      .from(athletics);
+    return new Map(
+      athleticRows
+        .filter((a) => a.nduAthleticId != null)
+        .map((a) => [a.nduAthleticId!, a.name])
+    );
+  } catch {
+    return new Map();
+  }
 }
 
 function toPlayerOptions(
@@ -40,6 +73,7 @@ function toPlayerOptions(
     }));
 }
 
+/** Busca artilheiros e cartões ao vivo em ndu.com.br/estatisticas. */
 export async function fetchNduStatsPlayersLive(
   sportSlug: SportSlug,
   series: SeriesLetter
@@ -47,44 +81,38 @@ export async function fetchNduStatsPlayersLive(
   const modalityIds = NDU_MODALITY_IDS[sportSlug];
   if (!modalityIds?.length) return { scorers: [], cards: [] };
 
-  const year = await getSeasonYear();
   const isBasketball = sportSlug === "basquete";
-
-  const db = requireDb();
-  const athleticRows = await db
-    .select({
-      nduAthleticId: athletics.nduAthleticId,
-      name: athletics.name,
-    })
-    .from(athletics);
-  const teamByNduId = new Map(
-    athleticRows
-      .filter((a) => a.nduAthleticId != null)
-      .map((a) => [a.nduAthleticId!, a.name])
-  );
+  const teamByNduId = await loadTeamNames();
 
   let scorers: PlayerOption[] = [];
   let cards: PlayerOption[] = [];
 
-  for (const modalityId of modalityIds) {
-    try {
-      const html = await fetchNduStatsFragment(
-        modalityId,
-        series,
-        String(year)
-      );
-      const parsedScorers = parseNduStatsPage(html, isBasketball);
-      const parsedCards = isBasketball ? [] : parseNduCardStatsPage(html);
+  for (const year of await yearsToTry()) {
+    for (const modalityId of modalityIds) {
+      try {
+        const html = await fetchNduStatsFragment(
+          modalityId,
+          series,
+          String(year)
+        );
+        const parsedScorers = parseNduStatsPage(html, isBasketball);
+        const parsedCards = isBasketball ? [] : parseNduCardStatsPage(html);
 
-      if (parsedScorers.length > scorers.length) {
-        scorers = toPlayerOptions(parsedScorers, teamByNduId);
+        if (parsedScorers.length > scorers.length) {
+          scorers = toPlayerOptions(parsedScorers, teamByNduId);
+        }
+        if (parsedCards.length > cards.length) {
+          cards = toPlayerOptions(parsedCards, teamByNduId);
+        }
+      } catch (error) {
+        console.error(
+          `[stats-live] ${sportSlug} série ${series} mod ${modalityId} ano ${year}:`,
+          error
+        );
       }
-      if (parsedCards.length > cards.length) {
-        cards = toPlayerOptions(parsedCards, teamByNduId);
-      }
-    } catch {
-      /* modalidade sem dados */
     }
+
+    if (scorers.length > 0 || cards.length > 0) break;
   }
 
   return { scorers, cards };

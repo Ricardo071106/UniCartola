@@ -130,17 +130,37 @@ async function getPlayerOptionsFromStats(
     }));
 }
 
+async function getPlayersFromNduEstatisticas(
+  sportSlug: SportSlug,
+  series: SeriesLetter,
+  kind: "scorers" | "cards"
+): Promise<PlayerOption[]> {
+  const { fetchNduStatsPlayersLive } = await import("@/lib/ndu/stats-live");
+  const live = await fetchNduStatsPlayersLive(sportSlug, series);
+  return kind === "scorers" ? live.scorers : live.cards;
+}
+
 export async function getScorerOptions(
   sportSlug: SportSlug,
   series: SeriesLetter
 ): Promise<PlayerOption[]> {
-  const statType = sportSlug === "basquete" ? "points" : "goals";
-  const fromDb = await getPlayerOptionsFromStats(sportSlug, series, statType);
-  if (fromDb.length > 0) return fromDb;
+  try {
+    const fromNdu = await getPlayersFromNduEstatisticas(
+      sportSlug,
+      series,
+      "scorers"
+    );
+    if (fromNdu.length > 0) return fromNdu;
+  } catch (error) {
+    console.error("[palpites] artilheiros NDU estatísticas:", error);
+  }
 
-  const { fetchNduStatsPlayersLive } = await import("@/lib/ndu/stats-live");
-  const live = await fetchNduStatsPlayersLive(sportSlug, series);
-  return live.scorers;
+  const statType = sportSlug === "basquete" ? "points" : "goals";
+  try {
+    return await getPlayerOptionsFromStats(sportSlug, series, statType);
+  } catch {
+    return [];
+  }
 }
 
 export async function getCardPlayerOptions(
@@ -148,10 +168,21 @@ export async function getCardPlayerOptions(
   series: SeriesLetter
 ): Promise<PlayerOption[]> {
   if (sportSlug === "basquete") return [];
-  const fromDb = await getPlayerOptionsFromStats(sportSlug, series, "cards");
-  if (fromDb.length > 0) return fromDb;
 
-  const { fetchNduStatsPlayersLive } = await import("@/lib/ndu/stats-live");
-  const live = await fetchNduStatsPlayersLive(sportSlug, series);
-  return live.cards;
+  try {
+    const fromNdu = await getPlayersFromNduEstatisticas(
+      sportSlug,
+      series,
+      "cards"
+    );
+    if (fromNdu.length > 0) return fromNdu;
+  } catch (error) {
+    console.error("[palpites] cartões NDU estatísticas:", error);
+  }
+
+  try {
+    return await getPlayerOptionsFromStats(sportSlug, series, "cards");
+  } catch {
+    return [];
+  }
 }

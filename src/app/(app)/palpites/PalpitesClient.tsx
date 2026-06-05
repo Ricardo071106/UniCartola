@@ -254,7 +254,16 @@ export function PalpitesClient({
           />
           {scorerOptions.length === 0 && (
             <p className="text-xs text-zinc-500">
-              Lista de jogadores será atualizada com o próximo boletim NDU.
+              Nenhum jogador nesta série em{" "}
+              <a
+                href="https://www.ndu.com.br/estatisticas"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                ndu.com.br/estatisticas
+              </a>{" "}
+              ainda.
             </p>
           )}
           <Button type="submit" size="sm" disabled={!canBet || pending}>
@@ -279,7 +288,16 @@ export function PalpitesClient({
             />
             {cardOptions.length === 0 && (
               <p className="text-xs text-zinc-500">
-                Lista de cartões será atualizada com o próximo boletim NDU.
+                Nenhum jogador com cartão nesta série em{" "}
+                <a
+                  href="https://www.ndu.com.br/estatisticas"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  ndu.com.br/estatisticas
+                </a>{" "}
+                ainda.
               </p>
             )}
             <Button type="submit" size="sm" disabled={!canBet || pending}>

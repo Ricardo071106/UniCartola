@@ -27,9 +27,11 @@ export default async function PalpitesPage({
   const series = parseSeries(params.series);
 
   after(() => {
-    import("@/lib/ndu/boletim-watch")
-      .then(({ syncIfNewBoletim }) => syncIfNewBoletim())
-      .catch((error) => console.error("[palpites] sync boletim:", error));
+    import("@/lib/ndu/stats-sync")
+      .then(({ syncNduStats }) => syncNduStats())
+      .catch((error) =>
+        console.error("[palpites] sync estatísticas NDU:", error)
+      );
   });
 
   const session = await getSession();
