@@ -1,37 +1,12 @@
 import { requireDb } from "@/lib/db";
 import { athletics } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
 import { NDU_MODALITY_IDS } from "./constants";
 import { fetchNduStatsFragment } from "./fetch";
+import { getCurrentStatsYear } from "./stats-period";
 import { parseNduCardStatsPage, parseNduStatsPage } from "./stats-parser";
 import type { SportSlug } from "@/types";
 import type { SeriesLetter } from "@/lib/queries/standings";
 import type { PlayerOption } from "@/lib/queries/palpites-options";
-
-async function getSeasonYear(): Promise<number | null> {
-  try {
-    const { seasons } = await import("@/lib/db/schema");
-    const db = requireDb();
-    const [active] = await db
-      .select()
-      .from(seasons)
-      .where(eq(seasons.isActive, true))
-      .limit(1);
-    return active?.year ?? null;
-  } catch {
-    return null;
-  }
-}
-
-export async function yearsToTry(): Promise<number[]> {
-  const years = new Set<number>();
-  const seasonYear = await getSeasonYear();
-  if (seasonYear != null) years.add(seasonYear);
-  const current = new Date().getFullYear();
-  years.add(current);
-  years.add(current - 1);
-  return [...years].sort((a, b) => b - a);
-}
 
 async function loadTeamNames(): Promise<Map<number, string>> {
   try {
@@ -73,7 +48,7 @@ function toPlayerOptions(
     }));
 }
 
-/** Busca artilheiros e cartões ao vivo em ndu.com.br/estatisticas. */
+/** Busca artilheiros e cartões ao vivo em ndu.com.br/estatisticas (ano + semestre atual). */
 export async function fetchNduStatsPlayersLive(
   sportSlug: SportSlug,
   series: SeriesLetter
@@ -81,34 +56,33 @@ export async function fetchNduStatsPlayersLive(
   const modalityIds = NDU_MODALITY_IDS[sportSlug];
   if (!modalityIds?.length) return { scorers: [], cards: [] };
 
+  const year = await getCurrentStatsYear();
   const isBasketball = sportSlug === "basquete";
   const teamByNduId = await loadTeamNames();
 
   let scorers: PlayerOption[] = [];
   let cards: PlayerOption[] = [];
 
-  for (const year of await yearsToTry()) {
-    for (const modalityId of modalityIds) {
-      try {
-        const html = await fetchNduStatsFragment(
-          modalityId,
-          series,
-          String(year)
-        );
-        const parsedScorers = parseNduStatsPage(html, isBasketball);
-        const parsedCards = isBasketball ? [] : parseNduCardStatsPage(html);
+  for (const modalityId of modalityIds) {
+    try {
+      const html = await fetchNduStatsFragment(
+        modalityId,
+        series,
+        String(year)
+      );
+      const parsedScorers = parseNduStatsPage(html, isBasketball);
+      const parsedCards = isBasketball ? [] : parseNduCardStatsPage(html);
 
-        const nextScorers = toPlayerOptions(parsedScorers, teamByNduId);
-        const nextCards = toPlayerOptions(parsedCards, teamByNduId);
+      const nextScorers = toPlayerOptions(parsedScorers, teamByNduId);
+      const nextCards = toPlayerOptions(parsedCards, teamByNduId);
 
-        if (nextScorers.length > scorers.length) scorers = nextScorers;
-        if (nextCards.length > cards.length) cards = nextCards;
-      } catch (error) {
-        console.error(
-          `[stats-live] ${sportSlug} série ${series} mod ${modalityId} ano ${year}:`,
-          error
-        );
-      }
+      if (nextScorers.length > scorers.length) scorers = nextScorers;
+      if (nextCards.length > cards.length) cards = nextCards;
+    } catch (error) {
+      console.error(
+        `[stats-live] ${sportSlug} série ${series} mod ${modalityId} ano ${year}:`,
+        error
+      );
     }
   }
 

@@ -2,6 +2,7 @@ import {
   NDU_BROWSER_HEADERS,
   NDU_MODALITY_IDS,
 } from "./constants";
+import { NDU_CURRENT_SEMESTRE } from "./stats-period";
 
 export const NDU_JOGOS_URL = "https://www.ndu.com.br/jogos";
 export const NDU_LISTAR_URL = "https://www.ndu.com.br/jogos/listar_todos_jogos";
@@ -107,14 +108,15 @@ async function warmNduStatsSession(): Promise<void> {
 export async function fetchNduStatsFragment(
   modalityId: string,
   series: string,
-  year = "2026"
+  year: string,
+  semestre: string = NDU_CURRENT_SEMESTRE
 ): Promise<string> {
   await warmNduStatsSession();
 
   const body = new URLSearchParams({
     modalidade: modalityId,
     serie: series,
-    semestre: "",
+    semestre,
     ano: year,
     id_atletica: "",
   });

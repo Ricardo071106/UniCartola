@@ -6,7 +6,6 @@ import {
   athletics,
   universities,
   nduScorerStats,
-  seasons,
 } from "@/lib/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { normalizeTeamName } from "@/lib/ndu/normalize";
@@ -28,13 +27,8 @@ type TopScorerJson = {
 };
 
 async function getSeasonYear(): Promise<number> {
-  const db = requireDb();
-  const [active] = await db
-    .select()
-    .from(seasons)
-    .where(eq(seasons.isActive, true))
-    .limit(1);
-  return active?.year ?? new Date().getFullYear();
+  const { getCurrentStatsYear } = await import("@/lib/ndu/stats-period");
+  return getCurrentStatsYear();
 }
 
 async function fromNduScorerStats(

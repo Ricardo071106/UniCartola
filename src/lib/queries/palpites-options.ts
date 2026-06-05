@@ -9,14 +9,8 @@ export type TeamOption = { id: string; name: string };
 export type PlayerOption = { name: string; teamName: string };
 
 async function getSeasonYear(): Promise<number> {
-  const db = requireDb();
-  const { seasons } = await import("@/lib/db/schema");
-  const [active] = await db
-    .select()
-    .from(seasons)
-    .where(eq(seasons.isActive, true))
-    .limit(1);
-  return active?.year ?? new Date().getFullYear();
+  const { getCurrentStatsYear } = await import("@/lib/ndu/stats-period");
+  return getCurrentStatsYear();
 }
 
 export async function getSeriesTeamOptions(

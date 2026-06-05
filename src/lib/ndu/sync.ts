@@ -510,7 +510,7 @@ export async function runFullScrape(options: ScrapeOptions = {}) {
     scorersSynced += ingest.scorersSynced;
 
     try {
-      statsSynced = await syncNduStats(year);
+      statsSynced = await syncNduStats();
     } catch (e) {
       errors.push(`stats: ${e instanceof Error ? e.message : String(e)}`);
     }
