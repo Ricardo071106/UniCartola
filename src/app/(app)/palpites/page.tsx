@@ -39,8 +39,14 @@ export default async function PalpitesPage({
 
   const [teamOptions, scorerOptions, cardOptions] = await Promise.all([
     safeQuery(() => getSeriesTeamOptions(sport, series), []),
-    safeQuery(() => getScorerOptions(sport, series), []),
-    safeQuery(() => getCardPlayerOptions(sport, series), []),
+    getScorerOptions(sport, series).catch((error) => {
+      console.error("[palpites] artilheiros:", error);
+      return [];
+    }),
+    getCardPlayerOptions(sport, series).catch((error) => {
+      console.error("[palpites] cartões:", error);
+      return [];
+    }),
   ]);
 
   let playBalance = 10000;

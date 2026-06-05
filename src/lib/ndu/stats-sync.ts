@@ -3,6 +3,7 @@ import { athletics, matches, nduScorerStats, sports } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { NDU_MODALITY_IDS } from "./constants";
 import { fetchNduStatsFragment } from "./fetch";
+import { yearsToTry } from "./stats-live";
 import {
   parseNduCardStatsPage,
   parseNduStatsPage,
@@ -91,7 +92,7 @@ async function persistScorerRows(
   return saved;
 }
 
-export async function syncNduStats(year = 2026): Promise<number> {
+export async function syncNduStats(preferredYear?: number): Promise<number> {
   const db = requireDb();
   const athleticRows = await db.select().from(athletics);
   const byNduId = new Map(
@@ -101,6 +102,11 @@ export async function syncNduStats(year = 2026): Promise<number> {
   );
 
   let saved = 0;
+  const years = preferredYear
+    ? [preferredYear, ...(await yearsToTry())].filter(
+        (y, i, arr) => arr.indexOf(y) === i
+      )
+    : await yearsToTry();
 
   const jobs: { sportSlug: string; modalityId: string; isBasketball: boolean }[] =
     [
@@ -123,54 +129,71 @@ export async function syncNduStats(year = 2026): Promise<number> {
 
   for (const job of jobs) {
     for (const series of SERIES) {
-      try {
-        const html = await fetchNduStatsFragment(
-          job.modalityId,
-          series,
-          String(year)
-        );
+      let bestScorers: ParsedNduScorer[] = [];
+      let bestCards: ParsedNduScorer[] = [];
+      let dataYear = years[0] ?? new Date().getFullYear();
 
-        let scorers = parseNduStatsPage(html, job.isBasketball);
-        const cardPlayers = job.isBasketball
-          ? []
-          : parseNduCardStatsPage(html);
-
-        if (job.isBasketball && scorers.length > 0) {
-          const seriesAthletics = await athleticNduIdsInSeries(
-            job.sportSlug,
-            series
+      for (const year of years) {
+        try {
+          const html = await fetchNduStatsFragment(
+            job.modalityId,
+            series,
+            String(year)
           );
-          if (seriesAthletics.size > 0) {
-            scorers = scorers.filter(
-              (s) =>
-                s.athleticNduId != null &&
-                seriesAthletics.has(s.athleticNduId)
-            );
-          }
-        }
 
-        const scorerStatType = job.isBasketball ? "points" : "goals";
+          let scorers = parseNduStatsPage(html, job.isBasketball);
+          const cardPlayers = job.isBasketball
+            ? []
+            : parseNduCardStatsPage(html);
+
+          if (job.isBasketball && scorers.length > 0) {
+            const seriesAthletics = await athleticNduIdsInSeries(
+              job.sportSlug,
+              series
+            );
+            if (seriesAthletics.size > 0) {
+              scorers = scorers.filter(
+                (s) =>
+                  s.athleticNduId != null &&
+                  seriesAthletics.has(s.athleticNduId)
+              );
+            }
+          }
+
+          if (scorers.length > bestScorers.length) {
+            bestScorers = scorers;
+            dataYear = year;
+          }
+          if (cardPlayers.length > bestCards.length) {
+            bestCards = cardPlayers;
+            dataYear = year;
+          }
+        } catch {
+          /* série/modalidade/ano sem dados */
+        }
+      }
+
+      if (bestScorers.length === 0 && bestCards.length === 0) continue;
+
+      const scorerStatType = job.isBasketball ? "points" : "goals";
+      saved += await persistScorerRows(
+        bestScorers,
+        job.sportSlug,
+        series,
+        scorerStatType,
+        dataYear,
+        byNduId
+      );
+
+      if (!job.isBasketball) {
         saved += await persistScorerRows(
-          scorers,
+          bestCards,
           job.sportSlug,
           series,
-          scorerStatType,
-          year,
+          "cards",
+          dataYear,
           byNduId
         );
-
-        if (!job.isBasketball) {
-          saved += await persistScorerRows(
-            cardPlayers,
-            job.sportSlug,
-            series,
-            "cards",
-            year,
-            byNduId
-          );
-        }
-      } catch {
-        /* série/modalidade sem dados */
       }
     }
   }

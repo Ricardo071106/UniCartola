@@ -23,14 +23,14 @@ async function getSeasonYear(): Promise<number | null> {
   }
 }
 
-async function yearsToTry(): Promise<number[]> {
+export async function yearsToTry(): Promise<number[]> {
   const years = new Set<number>();
   const seasonYear = await getSeasonYear();
   if (seasonYear != null) years.add(seasonYear);
   const current = new Date().getFullYear();
   years.add(current);
   years.add(current - 1);
-  return [...years];
+  return [...years].sort((a, b) => b - a);
 }
 
 async function loadTeamNames(): Promise<Map<number, string>> {
@@ -98,12 +98,11 @@ export async function fetchNduStatsPlayersLive(
         const parsedScorers = parseNduStatsPage(html, isBasketball);
         const parsedCards = isBasketball ? [] : parseNduCardStatsPage(html);
 
-        if (parsedScorers.length > scorers.length) {
-          scorers = toPlayerOptions(parsedScorers, teamByNduId);
-        }
-        if (parsedCards.length > cards.length) {
-          cards = toPlayerOptions(parsedCards, teamByNduId);
-        }
+        const nextScorers = toPlayerOptions(parsedScorers, teamByNduId);
+        const nextCards = toPlayerOptions(parsedCards, teamByNduId);
+
+        if (nextScorers.length > scorers.length) scorers = nextScorers;
+        if (nextCards.length > cards.length) cards = nextCards;
       } catch (error) {
         console.error(
           `[stats-live] ${sportSlug} série ${series} mod ${modalityId} ano ${year}:`,
@@ -111,8 +110,6 @@ export async function fetchNduStatsPlayersLive(
         );
       }
     }
-
-    if (scorers.length > 0 || cards.length > 0) break;
   }
 
   return { scorers, cards };

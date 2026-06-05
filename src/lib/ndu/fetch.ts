@@ -92,11 +92,25 @@ export async function fetchNduBinary(
   return buf;
 }
 
+let statsSessionWarmed = false;
+
+async function warmNduStatsSession(): Promise<void> {
+  if (statsSessionWarmed) return;
+  try {
+    await fetchNduHtml(NDU_STATS_URL);
+    statsSessionWarmed = true;
+  } catch {
+    /* segue sem cookie de sessão */
+  }
+}
+
 export async function fetchNduStatsFragment(
   modalityId: string,
   series: string,
   year = "2026"
 ): Promise<string> {
+  await warmNduStatsSession();
+
   const body = new URLSearchParams({
     modalidade: modalityId,
     serie: series,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MatchCard } from "@/components/match/MatchCard";
 import { PredictionCard } from "@/components/prediction/PredictionCard";
@@ -94,11 +94,49 @@ export function PalpitesClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
+  const isBasketball = sport === "basquete";
+  const [liveScorers, setLiveScorers] = useState(scorerOptions);
+  const [liveCards, setLiveCards] = useState(cardOptions);
+  const [loadingPlayers, setLoadingPlayers] = useState(false);
+
+  useEffect(() => {
+    setLiveScorers(scorerOptions);
+    setLiveCards(cardOptions);
+  }, [scorerOptions, cardOptions]);
+
+  useEffect(() => {
+    const needsCards = !isBasketball;
+    const hasAllData =
+      liveScorers.length > 0 && (!needsCards || liveCards.length > 0);
+    if (hasAllData) return;
+
+    let cancelled = false;
+    setLoadingPlayers(true);
+
+    fetch(`/api/palpites/player-options?sport=${sport}&series=${series}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        if (Array.isArray(data.scorers) && data.scorers.length > 0) {
+          setLiveScorers(data.scorers);
+        }
+        if (Array.isArray(data.cards) && data.cards.length > 0) {
+          setLiveCards(data.cards);
+        }
+      })
+      .catch((error) => console.error("[palpites] player-options:", error))
+      .finally(() => {
+        if (!cancelled) setLoadingPlayers(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sport, series, isBasketball, liveCards.length, liveScorers.length]);
 
   const champion = marketPredictions.find((m) => m.marketType === "champion");
   const topScorer = marketPredictions.find((m) => m.marketType === "top_scorer");
   const topCards = marketPredictions.find((m) => m.marketType === "top_cards");
-  const isBasketball = sport === "basquete";
   const isRealMode = currencyMode === "real";
   const canBet = isLoggedIn && (!isRealMode || realEntryPaid);
 
@@ -244,15 +282,20 @@ export function PalpitesClient({
             {isBasketball ? "Maior pontuador" : "Artilheiro"}
           </label>
           <PlayerSelect
+            key={`scorer-${sport}-${series}-${liveScorers.length}`}
             name="playerName"
-            options={scorerOptions}
+            options={liveScorers}
             defaultValue={topScorer?.playerName}
-            disabled={!canBet || pending}
+            disabled={!canBet || pending || loadingPlayers}
             placeholder={
-              isBasketball ? "Selecione o pontuador" : "Selecione o artilheiro"
+              loadingPlayers
+                ? "Carregando jogadores..."
+                : isBasketball
+                  ? "Selecione o pontuador"
+                  : "Selecione o artilheiro"
             }
           />
-          {scorerOptions.length === 0 && (
+          {liveScorers.length === 0 && !loadingPlayers && (
             <p className="text-xs text-zinc-500">
               Nenhum jogador nesta série em{" "}
               <a
@@ -280,13 +323,18 @@ export function PalpitesClient({
               Mais cartões
             </label>
             <PlayerSelect
+              key={`cards-${sport}-${series}-${liveCards.length}`}
               name="playerName"
-              options={cardOptions}
+              options={liveCards}
               defaultValue={topCards?.playerName}
-              disabled={!canBet || pending}
-              placeholder="Selecione o jogador"
+              disabled={!canBet || pending || loadingPlayers}
+              placeholder={
+                loadingPlayers
+                  ? "Carregando jogadores..."
+                  : "Selecione o jogador"
+              }
             />
-            {cardOptions.length === 0 && (
+            {liveCards.length === 0 && !loadingPlayers && (
               <p className="text-xs text-zinc-500">
                 Nenhum jogador com cartão nesta série em{" "}
                 <a
