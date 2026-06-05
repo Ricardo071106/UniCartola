@@ -209,6 +209,17 @@ Erro: ${raw}
 `.trim();
   }
 
+  if (msg.includes("does not exist") && msg.includes("athletics")) {
+    return `
+❌ Banco sem tabelas, mas migrations antigas registradas.
+
+O deploy vai corrigir automaticamente na próxima versão.
+Ou rode no Supabase SQL Editor:
+  DROP SCHEMA IF EXISTS drizzle CASCADE;
+Depois redeploy.
+`.trim();
+  }
+
   if (msg.includes("already exists") || msg.includes("duplicate")) {
     return `
 ❌ Erro na migration (objeto já existe no banco).

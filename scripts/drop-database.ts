@@ -20,13 +20,14 @@ async function main() {
   console.log("⚠️  Limpando banco (DROP SCHEMA public CASCADE)...");
 
   await sql.unsafe(`
+    DROP SCHEMA IF EXISTS drizzle CASCADE;
     DROP SCHEMA public CASCADE;
     CREATE SCHEMA public;
     GRANT ALL ON SCHEMA public TO postgres;
     GRANT ALL ON SCHEMA public TO public;
   `);
 
-  console.log("✅ Banco zerado. Rode: npm run db:migrate");
+  console.log("✅ Banco zerado (inclui histórico drizzle). Rode: npm run db:migrate");
   await sql.end({ timeout: 5 });
 }
 
