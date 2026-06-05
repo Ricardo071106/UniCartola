@@ -8,6 +8,13 @@
       "when": 1780622098058,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780622099000,
+      "tag": "0001_ndu_stats",
+      "breakpoints": true
     }
   ]
 }

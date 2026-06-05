@@ -9,6 +9,7 @@ import {
   pgEnum,
   uniqueIndex,
   index,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -82,9 +83,14 @@ export const athletics = pgTable(
       .notNull(),
     name: varchar("name", { length: 200 }).notNull(),
     logoUrl: text("logo_url"),
+    nduAlias: varchar("ndu_alias", { length: 255 }),
+    normalizedName: varchar("normalized_name", { length: 255 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (t) => [index("athletics_university_idx").on(t.universityId)]
+  (t) => [
+    index("athletics_university_idx").on(t.universityId),
+    index("athletics_normalized_idx").on(t.normalizedName),
+  ]
 );
 
 export const users = pgTable(
@@ -118,6 +124,7 @@ export const sports = pgTable("sports", {
   name: varchar("name", { length: 100 }).notNull(),
   slug: varchar("slug", { length: 50 }).notNull().unique(),
   icon: varchar("icon", { length: 50 }),
+  nduUrl: text("ndu_url"),
 });
 
 export const competitions = pgTable("competitions", {
@@ -153,7 +160,14 @@ export const matches = pgTable(
     awayUniversityId: uuid("away_university_id")
       .references(() => universities.id)
       .notNull(),
+    homeAthleticsId: uuid("home_athletics_id").references(() => athletics.id),
+    awayAthleticsId: uuid("away_athletics_id").references(() => athletics.id),
     modality: varchar("modality", { length: 100 }).notNull(),
+    series: varchar("series", { length: 8 }),
+    groupName: varchar("group_name", { length: 8 }),
+    homeTeamName: varchar("home_team_name", { length: 255 }),
+    awayTeamName: varchar("away_team_name", { length: 255 }),
+    externalKey: varchar("external_key", { length: 255 }),
     scheduledAt: timestamp("scheduled_at").notNull(),
     venue: varchar("venue", { length: 200 }),
     status: matchStatusEnum("status").default("scheduled").notNull(),
@@ -161,11 +175,14 @@ export const matches = pgTable(
     awayScore: integer("away_score"),
     isFeatured: boolean("is_featured").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => [
     index("matches_scheduled_idx").on(t.scheduledAt),
     index("matches_status_idx").on(t.status),
     index("matches_sport_idx").on(t.sportId),
+    index("matches_series_idx").on(t.series),
+    uniqueIndex("matches_external_key_idx").on(t.externalKey),
   ]
 );
 
@@ -185,6 +202,42 @@ export const matchStats = pgTable("match_stats", {
   yellowCardsAway: integer("yellow_cards_away").default(0),
   redCardsHome: integer("red_cards_home").default(0),
   redCardsAway: integer("red_cards_away").default(0),
+  goalScorers: jsonb("goal_scorers"),
+  topScorers: jsonb("top_scorers"),
+});
+
+export const players = pgTable(
+  "players",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: varchar("name", { length: 255 }).notNull(),
+    normalizedName: varchar("normalized_name", { length: 255 }).notNull(),
+    universityId: uuid("university_id").references(() => universities.id),
+    athleticsId: uuid("athletics_id").references(() => athletics.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("players_normalized_idx").on(t.normalizedName)]
+);
+
+export const scrapeRuns = pgTable("scrape_runs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  source: varchar("source", { length: 50 }).default("ndu").notNull(),
+  status: varchar("status", { length: 20 }).default("running").notNull(),
+  matchesCreated: integer("matches_created").default(0),
+  matchesUpdated: integer("matches_updated").default(0),
+  errors: jsonb("errors"),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  finishedAt: timestamp("finished_at"),
+});
+
+export const teamMappingQueue = pgTable("team_mapping_queue", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  rawName: varchar("raw_name", { length: 255 }).notNull(),
+  suggestedAthleticsId: uuid("suggested_athletics_id").references(
+    () => athletics.id
+  ),
+  needsReview: boolean("needs_review").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const predictions = pgTable(

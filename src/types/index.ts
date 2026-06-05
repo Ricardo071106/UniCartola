@@ -107,6 +107,31 @@ export interface AchievementItem {
   earnedAt?: Date | null;
 }
 
+export interface StandingsEntry {
+  rank: number;
+  universityId: string;
+  athleticsId: string | null;
+  teamName: string;
+  logoUrl: string | null;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  points: number;
+  goalDifference: number;
+}
+
+export interface ScorerEntry {
+  rank: number;
+  playerName: string;
+  teamName: string;
+  athleticsId: string | null;
+  universityId: string | null;
+  logoUrl: string | null;
+  total: number;
+}
+
 export interface UserProfile {
   id: string;
   nickname: string;

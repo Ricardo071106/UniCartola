@@ -11,6 +11,8 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AppHeader } from "./AppHeader";
+import type { SessionPayload } from "@/lib/auth/session";
 
 const navItems = [
   { href: "/", label: "Home", icon: Home },
@@ -20,7 +22,13 @@ const navItems = [
   { href: "/perfil", label: "Perfil", icon: User },
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  session,
+}: {
+  children: React.ReactNode;
+  session: SessionPayload | null;
+}) {
   const pathname = usePathname();
 
   return (
@@ -67,16 +75,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/95 backdrop-blur lg:hidden">
-          <div className="flex items-center gap-2 px-4 py-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1e3a5f]">
-              <GraduationCap className="h-5 w-5 text-white" />
-            </div>
-            <p className="font-bold text-gray-900">Campus League</p>
-          </div>
-        </header>
+        <div className="lg:hidden">
+          <AppHeader session={session} />
+        </div>
+        <div className="hidden lg:block lg:fixed lg:left-64 lg:right-0 lg:top-0 lg:z-30">
+          <AppHeader session={session} />
+        </div>
 
-        <main className="mx-auto max-w-3xl px-4 pb-24 pt-4 lg:max-w-4xl lg:pb-8 lg:pt-6">
+        <main className="mx-auto max-w-3xl px-4 pb-24 pt-4 lg:max-w-5xl lg:pb-8 lg:pt-[4.5rem]">
           {children}
         </main>
       </div>

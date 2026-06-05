@@ -14,7 +14,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/onboarding") || pathname.startsWith("/api")) {
+  if (
+    pathname === "/" ||
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/api")
+  ) {
     return NextResponse.next();
   }
 

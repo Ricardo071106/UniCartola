@@ -143,6 +143,9 @@ async function main() {
   await db.delete(schema.achievements);
   await db.delete(schema.sports);
   await db.delete(schema.universities);
+  await db.delete(schema.teamMappingQueue);
+  await db.delete(schema.scrapeRuns);
+  await db.delete(schema.players);
   await db.delete(schema.matchesImportQueue);
   await db.delete(schema.statisticsImportQueue);
 
@@ -168,16 +171,32 @@ async function main() {
   });
   const courseRows = await db.insert(schema.courses).values(courseValues).returning();
 
+  function normName(name: string) {
+    return name
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ");
+  }
+
   const athleticsValues: (typeof schema.athletics.$inferInsert)[] = [];
   uniRows.forEach((uni, i) => {
+    const mainName = ATHLETICS_NAMES[i] ?? `Atlética ${uni.shortName}`;
     athleticsValues.push({
       universityId: uni.id,
-      name: ATHLETICS_NAMES[i] ?? `Atlética ${uni.shortName}`,
+      name: mainName,
+      nduAlias: uni.shortName,
+      normalizedName: normName(mainName),
+      logoUrl: `https://api.dicebear.com/7.x/identicon/svg?seed=${uni.shortName}`,
     });
     if (i % 2 === 0) {
       athleticsValues.push({
         universityId: uni.id,
         name: `Atlética ${uni.shortName} B`,
+        nduAlias: `${uni.shortName} B`,
+        normalizedName: normName(`Atlética ${uni.shortName} B`),
+        logoUrl: `https://api.dicebear.com/7.x/identicon/svg?seed=${uni.shortName}B`,
       });
     }
   });
@@ -186,9 +205,24 @@ async function main() {
   const sportRows = await db
     .insert(schema.sports)
     .values([
-      { name: "Futebol", slug: "futebol", icon: "ball" },
-      { name: "Futsal", slug: "futsal", icon: "ball" },
-      { name: "Basquete", slug: "basquete", icon: "basket" },
+      {
+        name: "Futebol",
+        slug: "futebol",
+        icon: "ball",
+        nduUrl: "https://www.ndu.com.br/jogos",
+      },
+      {
+        name: "Futsal",
+        slug: "futsal",
+        icon: "ball",
+        nduUrl: "https://www.ndu.com.br/jogos",
+      },
+      {
+        name: "Basquete",
+        slug: "basquete",
+        icon: "basket",
+        nduUrl: "https://www.ndu.com.br/jogos",
+      },
     ])
     .returning();
 
@@ -222,6 +256,13 @@ async function main() {
     "Basquete Feminino",
   ];
 
+  const SERIES = ["A", "B", "C", "D", "E", "F"] as const;
+  const PLAYER_NAMES = [
+    "João Silva", "Pedro Santos", "Lucas Oliveira", "Rafael Costa",
+    "Bruno Lima", "Felipe Souza", "Gabriel Alves", "Matheus Rocha",
+    "Thiago Mendes", "Diego Ferreira", "André Martins", "Carlos Nunes",
+  ];
+
   const matchValues: (typeof schema.matches.$inferInsert)[] = [];
   const now = new Date();
 
@@ -230,6 +271,9 @@ async function main() {
     let away = pick(uniRows);
     while (away.id === home.id) away = pick(uniRows);
     const sport = pick(sportRows);
+    const series = pick([...SERIES]);
+    const homeAth = athleticsRows.find((a) => a.universityId === home.id);
+    const awayAth = athleticsRows.find((a) => a.universityId === away.id);
     const daysOffset = rand(-30, 14);
     const scheduled = new Date(now);
     scheduled.setDate(scheduled.getDate() + daysOffset);
@@ -241,20 +285,30 @@ async function main() {
 
     if (daysOffset < 0) {
       status = "finished";
-      homeScore = rand(0, 5);
-      awayScore = rand(0, 5);
+      homeScore = sport.slug === "basquete" ? rand(40, 90) : rand(0, 5);
+      awayScore = sport.slug === "basquete" ? rand(40, 90) : rand(0, 5);
     } else if (daysOffset === 0 && rand(0, 10) > 7) {
       status = "live";
       homeScore = rand(0, 3);
       awayScore = rand(0, 3);
     }
 
+    const homeTeamName = homeAth?.name ?? `Atlética ${home.shortName}`;
+    const awayTeamName = awayAth?.name ?? `Atlética ${away.shortName}`;
+
     matchValues.push({
       seasonId: season[0].id,
       sportId: sport.id,
       homeUniversityId: home.id,
       awayUniversityId: away.id,
+      homeAthleticsId: homeAth?.id ?? null,
+      awayAthleticsId: awayAth?.id ?? null,
       modality: pick(modalities),
+      series,
+      groupName: pick(["1", "2", "3"]),
+      homeTeamName,
+      awayTeamName,
+      externalKey: `seed:${sport.slug}:${i}:${series}`,
       scheduledAt: scheduled,
       venue: `Ginásio ${pick(["Principal", "Arena", "Poliesportivo", "Campus Norte"])} — ${home.shortName}`,
       status,
@@ -268,19 +322,41 @@ async function main() {
 
   const statsValues = matchRows
     .filter((m) => m.status === "finished")
-    .map((m) => ({
-      matchId: m.id,
-      goalsHome: m.homeScore ?? 0,
-      goalsAway: m.awayScore ?? 0,
-      assistsHome: rand(0, 5),
-      assistsAway: rand(0, 5),
-      basketsHome: m.modality.includes("Basquete") ? rand(40, 90) : null,
-      basketsAway: m.modality.includes("Basquete") ? rand(40, 90) : null,
-      yellowCardsHome: rand(0, 3),
-      yellowCardsAway: rand(0, 3),
-      redCardsHome: rand(0, 1),
-      redCardsAway: rand(0, 1),
-    }));
+    .map((m) => {
+      const isBasket = m.modality.includes("Basquete");
+      const homeTeam = m.homeTeamName ?? "Casa";
+      const awayTeam = m.awayTeamName ?? "Fora";
+
+      const goalScorers = !isBasket
+        ? [
+            { name: pick(PLAYER_NAMES), team: homeTeam, goals: rand(1, 3) },
+            { name: pick(PLAYER_NAMES), team: awayTeam, goals: rand(1, 2) },
+          ]
+        : null;
+
+      const topScorers = isBasket
+        ? [
+            { name: pick(PLAYER_NAMES), team: homeTeam, points: rand(10, 28) },
+            { name: pick(PLAYER_NAMES), team: awayTeam, points: rand(8, 24) },
+          ]
+        : null;
+
+      return {
+        matchId: m.id,
+        goalsHome: m.homeScore ?? 0,
+        goalsAway: m.awayScore ?? 0,
+        assistsHome: rand(0, 5),
+        assistsAway: rand(0, 5),
+        basketsHome: isBasket ? (m.homeScore ?? rand(40, 90)) : null,
+        basketsAway: isBasket ? (m.awayScore ?? rand(40, 90)) : null,
+        yellowCardsHome: rand(0, 3),
+        yellowCardsAway: rand(0, 3),
+        redCardsHome: rand(0, 1),
+        redCardsAway: rand(0, 1),
+        goalScorers,
+        topScorers,
+      };
+    });
 
   if (statsValues.length) {
     await db.insert(schema.matchStats).values(statsValues);
