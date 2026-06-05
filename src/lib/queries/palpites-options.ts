@@ -135,7 +135,12 @@ export async function getScorerOptions(
   series: SeriesLetter
 ): Promise<PlayerOption[]> {
   const statType = sportSlug === "basquete" ? "points" : "goals";
-  return getPlayerOptionsFromStats(sportSlug, series, statType);
+  const fromDb = await getPlayerOptionsFromStats(sportSlug, series, statType);
+  if (fromDb.length > 0) return fromDb;
+
+  const { fetchNduStatsPlayersLive } = await import("@/lib/ndu/stats-live");
+  const live = await fetchNduStatsPlayersLive(sportSlug, series);
+  return live.scorers;
 }
 
 export async function getCardPlayerOptions(
@@ -143,5 +148,10 @@ export async function getCardPlayerOptions(
   series: SeriesLetter
 ): Promise<PlayerOption[]> {
   if (sportSlug === "basquete") return [];
-  return getPlayerOptionsFromStats(sportSlug, series, "cards");
+  const fromDb = await getPlayerOptionsFromStats(sportSlug, series, "cards");
+  if (fromDb.length > 0) return fromDb;
+
+  const { fetchNduStatsPlayersLive } = await import("@/lib/ndu/stats-live");
+  const live = await fetchNduStatsPlayersLive(sportSlug, series);
+  return live.cards;
 }

@@ -1,4 +1,4 @@
-/** IDs da NDU (select modalidade em ndu.com.br/jogos) */
+/** IDs da NDU (jogos + estatisticas.ndu.com.br/por_modalidade) */
 export const NDU_MODALITY_IDS = {
   basquete: ["1"],
   futsal: ["2"],

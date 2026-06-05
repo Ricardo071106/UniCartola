@@ -3,7 +3,11 @@ import { athletics, matches, nduScorerStats, sports } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { NDU_MODALITY_IDS } from "./constants";
 import { fetchNduStatsFragment } from "./fetch";
-import { parseNduCardStatsPage, parseNduStatsPage } from "./stats-parser";
+import {
+  parseNduCardStatsPage,
+  parseNduStatsPage,
+  type ParsedNduScorer,
+} from "./stats-parser";
 
 const SERIES = ["A", "B", "C", "D", "E", "F"] as const;
 
@@ -46,6 +50,47 @@ async function athleticNduIdsInSeries(
   return ids;
 }
 
+async function persistScorerRows(
+  rows: ParsedNduScorer[],
+  sportSlug: string,
+  series: string,
+  statType: string,
+  year: number,
+  byNduId: Map<number, (typeof athletics.$inferSelect)>
+): Promise<number> {
+  if (rows.length === 0) return 0;
+  const db = requireDb();
+
+  await db
+    .delete(nduScorerStats)
+    .where(
+      and(
+        eq(nduScorerStats.sportSlug, sportSlug),
+        eq(nduScorerStats.series, series),
+        eq(nduScorerStats.statType, statType),
+        eq(nduScorerStats.seasonYear, year)
+      )
+    );
+
+  let saved = 0;
+  for (const s of rows) {
+    const ath = s.athleticNduId ? byNduId.get(s.athleticNduId) : undefined;
+    await db.insert(nduScorerStats).values({
+      sportSlug,
+      series,
+      playerName: s.playerName,
+      athleticNduId: s.athleticNduId,
+      teamName: ath?.name ?? null,
+      logoUrl: s.logoUrl ?? ath?.logoUrl ?? null,
+      total: s.total,
+      statType,
+      seasonYear: year,
+    });
+    saved++;
+  }
+  return saved;
+}
+
 export async function syncNduStats(year = 2026): Promise<number> {
   const db = requireDb();
   const athleticRows = await db.select().from(athletics);
@@ -84,10 +129,13 @@ export async function syncNduStats(year = 2026): Promise<number> {
           series,
           String(year)
         );
-        let scorers = parseNduStatsPage(html, job.isBasketball);
-        if (scorers.length === 0) continue;
 
-        if (job.isBasketball) {
+        let scorers = parseNduStatsPage(html, job.isBasketball);
+        const cardPlayers = job.isBasketball
+          ? []
+          : parseNduCardStatsPage(html);
+
+        if (job.isBasketball && scorers.length > 0) {
           const seriesAthletics = await athleticNduIdsInSeries(
             job.sportSlug,
             series
@@ -99,70 +147,27 @@ export async function syncNduStats(year = 2026): Promise<number> {
                 seriesAthletics.has(s.athleticNduId)
             );
           }
-          if (scorers.length === 0) continue;
         }
 
-        await db
-          .delete(nduScorerStats)
-          .where(
-            and(
-              eq(nduScorerStats.sportSlug, job.sportSlug),
-              eq(nduScorerStats.series, series),
-              eq(nduScorerStats.statType, job.isBasketball ? "points" : "goals"),
-              eq(nduScorerStats.seasonYear, year)
-            )
-          );
-
-        for (const s of scorers) {
-          const ath = s.athleticNduId
-            ? byNduId.get(s.athleticNduId)
-            : undefined;
-          await db.insert(nduScorerStats).values({
-            sportSlug: job.sportSlug,
-            series,
-            playerName: s.playerName,
-            athleticNduId: s.athleticNduId,
-            teamName: ath?.name ?? null,
-            logoUrl: s.logoUrl ?? ath?.logoUrl ?? null,
-            total: s.total,
-            statType: s.statType,
-            seasonYear: year,
-          });
-          saved++;
-        }
+        const scorerStatType = job.isBasketball ? "points" : "goals";
+        saved += await persistScorerRows(
+          scorers,
+          job.sportSlug,
+          series,
+          scorerStatType,
+          year,
+          byNduId
+        );
 
         if (!job.isBasketball) {
-          const cardPlayers = parseNduCardStatsPage(html);
-          if (cardPlayers.length > 0) {
-            await db
-              .delete(nduScorerStats)
-              .where(
-                and(
-                  eq(nduScorerStats.sportSlug, job.sportSlug),
-                  eq(nduScorerStats.series, series),
-                  eq(nduScorerStats.statType, "cards"),
-                  eq(nduScorerStats.seasonYear, year)
-                )
-              );
-
-            for (const s of cardPlayers) {
-              const ath = s.athleticNduId
-                ? byNduId.get(s.athleticNduId)
-                : undefined;
-              await db.insert(nduScorerStats).values({
-                sportSlug: job.sportSlug,
-                series,
-                playerName: s.playerName,
-                athleticNduId: s.athleticNduId,
-                teamName: ath?.name ?? null,
-                logoUrl: s.logoUrl ?? ath?.logoUrl ?? null,
-                total: s.total,
-                statType: "cards",
-                seasonYear: year,
-              });
-              saved++;
-            }
-          }
+          saved += await persistScorerRows(
+            cardPlayers,
+            job.sportSlug,
+            series,
+            "cards",
+            year,
+            byNduId
+          );
         }
       } catch {
         /* série/modalidade sem dados */
