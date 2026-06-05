@@ -55,16 +55,6 @@ export async function getSeriesTeamOptions(
       )
     );
 
-  const athIds = [
-    ...new Set(
-      matchRows
-        .flatMap((m) => [m.homeAthleticsId, m.awayAthleticsId])
-        .filter(Boolean)
-    ),
-  ] as string[];
-
-  if (athIds.length === 0) return [];
-
   const allAth = await db
     .select({ id: athletics.id, name: athletics.name, nduAthleticId: athletics.nduAthleticId })
     .from(athletics)
@@ -86,7 +76,16 @@ export async function getSeriesTeamOptions(
     }
   }
 
-  return [...teams.entries()].map(([id, name]) => ({ id, name }));
+  const fromMatches = [...teams.entries()].map(([id, name]) => ({ id, name }));
+  if (fromMatches.length > 0) return fromMatches;
+
+  try {
+    const { fetchNduSeriesTeamsLive } = await import("@/lib/ndu/teams-live");
+    return await fetchNduSeriesTeamsLive(sportSlug, series);
+  } catch (error) {
+    console.error("[palpites] times NDU:", error);
+    return [];
+  }
 }
 
 async function getPlayerOptionsFromStats(

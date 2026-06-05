@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   getCardPlayerOptions,
   getScorerOptions,
+  getSeriesTeamOptions,
 } from "@/lib/queries/palpites-options";
 import { parseSeries, parseSport } from "@/lib/queries/standings";
 
@@ -14,12 +15,13 @@ export async function GET(request: Request) {
   const series = parseSeries(searchParams.get("series"));
 
   try {
-    const [scorers, cards] = await Promise.all([
+    const [teams, scorers, cards] = await Promise.all([
+      getSeriesTeamOptions(sport, series),
       getScorerOptions(sport, series),
       getCardPlayerOptions(sport, series),
     ]);
 
-    return NextResponse.json({ sport, series, scorers, cards });
+    return NextResponse.json({ sport, series, teams, scorers, cards });
   } catch (error) {
     console.error("[api/palpites/player-options]", error);
     return NextResponse.json(

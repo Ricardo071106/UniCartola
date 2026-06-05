@@ -105,6 +105,66 @@ export function parseNduStatsPage(
   return scorers;
 }
 
+export type ParsedNduAthletic = {
+  athleticNduId: number;
+  logoUrl: string | null;
+};
+
+function parseAthleticsFromStatsTable(
+  $: cheerio.CheerioAPI,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  heading: cheerio.Cheerio<any>
+): ParsedNduAthletic[] {
+  const rows: ParsedNduAthletic[] = [];
+  const table = heading.nextAll("table").first();
+  table.find("tr").each((__, tr) => {
+    const tds = $(tr).find("td");
+    if (tds.length < 2) return;
+
+    const logoSrc = $(tds[1]).find("img").attr("src");
+    const athleticId = athleticIdFromLogoUrl(logoSrc ?? undefined);
+    if (!athleticId) return;
+
+    rows.push({
+      athleticNduId: parseInt(athleticId, 10),
+      logoUrl:
+        normalizeLogoUrl(logoSrc) ??
+        nduLogoUrl(athleticId),
+    });
+  });
+  return rows;
+}
+
+/** Atléticas únicas nas tabelas de artilheiros/cestinhas e cartões. */
+export function parseNduStatsAthletics(html: string): ParsedNduAthletic[] {
+  const $ = cheerio.load(html);
+  const seen = new Set<number>();
+  const athletics: ParsedNduAthletic[] = [];
+
+  $("h3").each((_, h3) => {
+    const title = $(h3)
+      .text()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    const isRelevantSection =
+      title.includes("artilheiro") ||
+      title.includes("cestinha") ||
+      title.includes("cestinhas") ||
+      title.includes("cartoes") ||
+      title.includes("cartao");
+    if (!isRelevantSection) return;
+
+    for (const row of parseAthleticsFromStatsTable($, $(h3))) {
+      if (seen.has(row.athleticNduId)) continue;
+      seen.add(row.athleticNduId);
+      athletics.push(row);
+    }
+  });
+
+  return athletics;
+}
+
 export function parseNduCardStatsPage(html: string): ParsedNduScorer[] {
   const $ = cheerio.load(html);
   const cards: ParsedNduScorer[] = [];

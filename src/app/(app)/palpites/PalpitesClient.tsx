@@ -95,19 +95,23 @@ export function PalpitesClient({
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const isBasketball = sport === "basquete";
+  const [liveTeams, setLiveTeams] = useState(teamOptions);
   const [liveScorers, setLiveScorers] = useState(scorerOptions);
   const [liveCards, setLiveCards] = useState(cardOptions);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
 
   useEffect(() => {
+    setLiveTeams(teamOptions);
     setLiveScorers(scorerOptions);
     setLiveCards(cardOptions);
-  }, [scorerOptions, cardOptions]);
+  }, [teamOptions, scorerOptions, cardOptions]);
 
   useEffect(() => {
     const needsCards = !isBasketball;
     const hasAllData =
-      liveScorers.length > 0 && (!needsCards || liveCards.length > 0);
+      liveTeams.length > 0 &&
+      liveScorers.length > 0 &&
+      (!needsCards || liveCards.length > 0);
     if (hasAllData) return;
 
     let cancelled = false;
@@ -117,6 +121,9 @@ export function PalpitesClient({
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
+        if (Array.isArray(data.teams) && data.teams.length > 0) {
+          setLiveTeams(data.teams);
+        }
         if (Array.isArray(data.scorers) && data.scorers.length > 0) {
           setLiveScorers(data.scorers);
         }
@@ -132,7 +139,14 @@ export function PalpitesClient({
     return () => {
       cancelled = true;
     };
-  }, [sport, series, isBasketball, liveCards.length, liveScorers.length]);
+  }, [
+    sport,
+    series,
+    isBasketball,
+    liveTeams.length,
+    liveCards.length,
+    liveScorers.length,
+  ]);
 
   const champion = marketPredictions.find((m) => m.marketType === "champion");
   const topScorer = marketPredictions.find((m) => m.marketType === "top_scorer");
@@ -252,21 +266,33 @@ export function PalpitesClient({
             Campeão da série {series}
           </label>
           <select
+            key={`teams-${sport}-${series}-${liveTeams.length}`}
             name="athleticsId"
             defaultValue={champion?.athleticsId ?? ""}
-            disabled={!canBet || pending}
+            disabled={!canBet || pending || loadingPlayers}
             className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
           >
-            <option value="">Selecione o time</option>
-            {teamOptions.map((t) => (
+            <option value="">
+              {loadingPlayers ? "Carregando times..." : "Selecione o time"}
+            </option>
+            {liveTeams.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>
             ))}
           </select>
-          {teamOptions.length === 0 && (
+          {liveTeams.length === 0 && !loadingPlayers && (
             <p className="text-xs text-zinc-500">
-              Nenhum time nesta série ainda — aguarde atualização do boletim.
+              Nenhum time nesta série em{" "}
+              <a
+                href="https://www.ndu.com.br/estatisticas"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                ndu.com.br/estatisticas
+              </a>{" "}
+              ainda.
             </p>
           )}
           <Button type="submit" size="sm" disabled={!canBet || pending}>
