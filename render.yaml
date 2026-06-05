@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: campus-league
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run db:push && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false

@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Campus League
 
-## Getting Started
+Plataforma de fantasy esportivo universitário e palpites focada em campeonatos universitários brasileiros.
 
-First, run the development server:
+**Não é casa de apostas.** Sem apostas em dinheiro, sem odds, sem gambling.
+
+## Stack
+
+- **Frontend:** Next.js 15, TypeScript, TailwindCSS, Shadcn/UI, Lucide React
+- **Backend:** Server Actions + API Routes
+- **Banco:** PostgreSQL via `DATABASE_URL` (Drizzle ORM)
+- **Deploy:** [Render](https://render.com)
+
+## Funcionalidades
+
+- Onboarding (faculdade → curso → atlética → apelido)
+- Home com destaque, jogos, rankings e streaks
+- Palpites (resultado +3, placar +5, ambos +8)
+- Rankings (geral, faculdade, curso, atlética, semanal, histórico)
+- Conquistas (badges)
+- Comunidade (posts, curtidas, comentários)
+- Notificações preparadas
+- Filas de importação para dados externos futuros
+
+## Setup local
+
+### 1. Variáveis de ambiente
+
+```bash
+cp .env.example .env.local
+```
+
+```env
+DATABASE_URL=postgresql://usuario:senha@host:5432/postgres
+SESSION_SECRET=uma-string-longa-e-aleatoria
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+Use o connection string do PostgreSQL no Supabase (**apenas** `DATABASE_URL` — sem SDK Supabase).
+
+### 2. Instalar e preparar banco
+
+```bash
+npm install
+npm run db:push
+npm run db:seed
+```
+
+### 3. Rodar
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Acesse [http://localhost:3000](http://localhost:3000). No primeiro acesso, complete o onboarding ou use um usuário demo após o seed.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy no Render
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Conecte o repositório no Render
+2. Use o blueprint `render.yaml` ou crie um Web Service Node
+3. Configure `DATABASE_URL` (PostgreSQL Supabase ou Render Postgres)
+4. `SESSION_SECRET` pode ser gerado automaticamente
+5. O build executa `db:push` e `npm run build`
 
-## Learn More
+Após o deploy, rode o seed uma vez (Shell do Render):
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run db:seed
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Comando | Descrição |
+|---------|-----------|
+| `npm run dev` | Desenvolvimento |
+| `npm run build` | Build produção |
+| `npm run db:push` | Sincroniza schema no PostgreSQL |
+| `npm run db:seed` | Popula dados mockados |
+| `npm run db:studio` | Drizzle Studio |
 
-## Deploy on Vercel
+## Estrutura
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+src/
+  app/           # Rotas Next.js (App Router)
+  actions/       # Server Actions
+  components/    # UI (MatchCard, Leaderboard, etc.)
+  lib/db/        # Drizzle schema + conexão
+  lib/queries/   # Consultas ao banco
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Identidade visual
+
+Estilo inspirado em SofaScore / FlashScore / ESPN: limpo, mobile-first, azul escuro `#1e3a5f`, verde para positivos.
+
+---
+
+Campus League — rivalidade universitária saudável.
