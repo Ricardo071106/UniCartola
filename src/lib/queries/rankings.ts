@@ -2,6 +2,7 @@ import { requireDb } from "@/lib/db";
 import { users, universities } from "@/lib/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import type { LeaderboardEntry, UniversityRankingEntry, RankingTab } from "@/types";
+import { realUsersOnly } from "./user-filters";
 
 export async function getWeeklyLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
   const db = requireDb();
@@ -15,7 +16,7 @@ export async function getWeeklyLeaderboard(limit = 10): Promise<LeaderboardEntry
     })
     .from(users)
     .leftJoin(universities, eq(users.universityId, universities.id))
-    .where(eq(users.onboardingComplete, true))
+    .where(and(realUsersOnly(), eq(users.onboardingComplete, true)))
     .orderBy(desc(users.weeklyPoints))
     .limit(limit);
 
@@ -39,7 +40,7 @@ export async function getGeneralLeaderboard(
   }
 ): Promise<LeaderboardEntry[]> {
   const db = requireDb();
-  const conditions = [eq(users.onboardingComplete, true)];
+  const conditions = [realUsersOnly(), eq(users.onboardingComplete, true)];
 
   if (filters?.universityId) {
     conditions.push(eq(users.universityId, filters.universityId));
@@ -82,14 +83,22 @@ export async function getUniversityRankings(
 ): Promise<UniversityRankingEntry[]> {
   const db = requireDb();
   const rows = await db
-    .select()
-    .from(universities)
-    .orderBy(desc(universities.totalPoints))
+    .select({
+      universityId: universities.id,
+      name: universities.name,
+      shortName: universities.shortName,
+      totalPoints: sql<number>`coalesce(sum(${users.totalPoints}), 0)::int`,
+    })
+    .from(users)
+    .innerJoin(universities, eq(users.universityId, universities.id))
+    .where(and(realUsersOnly(), eq(users.onboardingComplete, true)))
+    .groupBy(universities.id, universities.name, universities.shortName)
+    .orderBy(desc(sql`sum(${users.totalPoints})`))
     .limit(limit);
 
   return rows.map((u, i) => ({
     rank: i + 1,
-    universityId: u.id,
+    universityId: u.universityId,
     name: u.name,
     shortName: u.shortName,
     totalPoints: u.totalPoints,
@@ -107,7 +116,13 @@ export async function getStreakHighlights(limit = 5): Promise<LeaderboardEntry[]
       universityShortName: universities.shortName,
     })
     .from(users)
-    .where(and(eq(users.onboardingComplete, true), sql`${users.currentStreak} >= 3`))
+    .where(
+      and(
+        realUsersOnly(),
+        eq(users.onboardingComplete, true),
+        sql`${users.currentStreak} >= 3`
+      )
+    )
     .orderBy(desc(users.currentStreak))
     .limit(limit);
 
@@ -162,7 +177,7 @@ export async function getUserRank(
   const points =
     scope === "weekly" ? user.weeklyPoints : user.totalPoints;
 
-  const conditions = [eq(users.onboardingComplete, true)];
+  const conditions = [realUsersOnly(), eq(users.onboardingComplete, true)];
   if (scope === "university" && user.universityId) {
     conditions.push(eq(users.universityId, user.universityId));
   }

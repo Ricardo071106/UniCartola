@@ -11,7 +11,7 @@ const navItems = [
   { href: "/", label: "Início", icon: Home },
   { href: "/jogos", label: "Jogos", icon: Calendar },
   { href: "/rankings", label: "Rankings", icon: Trophy },
-  { href: "/comunidade", label: "Liga", icon: Users },
+  { href: "/comunidade", label: "Fórum", icon: Users },
   { href: "/perfil", label: "Perfil", icon: User },
 ];
 

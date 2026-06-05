@@ -6,7 +6,8 @@ import {
   comments,
   postLikes,
 } from "@/lib/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
+import { realUsersOnly } from "./user-filters";
 import type { PostWithAuthor, CommentWithAuthor } from "@/types";
 
 export async function getFeedPosts(
@@ -23,6 +24,7 @@ export async function getFeedPosts(
     .from(posts)
     .innerJoin(users, eq(posts.userId, users.id))
     .leftJoin(universities, eq(users.universityId, universities.id))
+    .where(realUsersOnly())
     .orderBy(desc(posts.createdAt))
     .limit(limit);
 

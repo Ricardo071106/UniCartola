@@ -20,9 +20,9 @@ export default async function ComunidadePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Comunidade</h1>
+        <h1 className="text-2xl font-bold text-white">Fórum</h1>
         <p className="text-sm text-zinc-500">
-          Debata jogos, palpites e resultados
+          Debata jogos, palpites e resultados com a galera
         </p>
       </div>
 

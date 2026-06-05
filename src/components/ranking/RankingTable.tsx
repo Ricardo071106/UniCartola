@@ -60,7 +60,9 @@ export function RankingTable({
           </tbody>
         </table>
         {universityEntries.length === 0 && (
-          <p className="p-6 text-center text-zinc-400">Sem dados</p>
+          <p className="p-6 text-center text-sm text-zinc-400">
+            Nenhuma faculdade no ranking ainda. Cadastre-se e comece a palpitar!
+          </p>
         )}
       </div>
     );
@@ -102,7 +104,9 @@ export function RankingTable({
         </tbody>
       </table>
       {userEntries.length === 0 && (
-        <p className="p-6 text-center text-zinc-400">Sem dados</p>
+        <p className="p-6 text-center text-sm text-zinc-400">
+          Nenhum jogador no ranking ainda. Cadastre-se e comece a palpitar!
+        </p>
       )}
     </div>
   );
