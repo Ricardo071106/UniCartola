@@ -112,14 +112,58 @@ export function normalizeDatabaseUrl(connectionString: string): string {
   return result;
 }
 
+/** Re-encoda senha na URL (evita quebrar com # @ % mal escapados) */
+function rebuildPostgresUrl(raw: string): string {
+  const match = raw.match(
+    /^postgres(?:ql)?:\/\/([^:@/]*)(?::([^@]*))?@([^/?#]+)(?:\/([^?#]*))?(.*)?$/i
+  );
+  if (!match) return raw;
+
+  const [, user, password = "", hostPort, database = "postgres", query = ""] =
+    match;
+  let decodedPass = password;
+  try {
+    decodedPass = decodeURIComponent(password);
+  } catch {
+    decodedPass = password;
+  }
+
+  const encodedPass = encodeURIComponent(decodedPass);
+  const db = database || "postgres";
+  let qs = query || "";
+  if (!qs.includes("sslmode=") && hostPort.includes("supabase")) {
+    qs = qs ? `${qs}&sslmode=require` : "?sslmode=require";
+  }
+
+  return `postgresql://${user}:${encodedPass}@${hostPort}/${db}${qs}`;
+}
+
 export function getConnectionString(): string | undefined {
+  // SUPABASE_* tem prioridade — evita senha quebrada na DATABASE_URL
   const fromSupabase = buildFromSupabaseEnv();
   if (fromSupabase) return fromSupabase;
 
   const raw = process.env.DATABASE_URL?.trim();
   if (!raw) return undefined;
 
-  return normalizeDatabaseUrl(raw);
+  const rebuilt = rebuildPostgresUrl(raw);
+  const host = extractConnectionHost(rebuilt);
+  const user = extractConnectionUser(rebuilt);
+
+  // Pooler exige postgres.PROJECT_REF — corrige se veio só "postgres"
+  if (
+    host?.includes("pooler.supabase.com") &&
+    user === "postgres" &&
+    process.env.SUPABASE_PROJECT_REF?.trim()
+  ) {
+    const ref = process.env.SUPABASE_PROJECT_REF.trim();
+    console.log(`[db] Corrigindo user → postgres.${ref}`);
+    return normalizeDatabaseUrl(
+      rebuilt.replace(/\/\/postgres:/, `//postgres.${ref}:`)
+    );
+  }
+
+  return normalizeDatabaseUrl(rebuilt);
 }
 
 export function createPostgresClient(connectionString: string, max = 10) {
@@ -204,10 +248,19 @@ O usuário deve ser postgres.SEU_PROJECT_REF (ex: postgres.abcdefgh).
     msg.includes("28p01")
   ) {
     return `
-❌ Senha incorreta
+❌ Senha do banco incorreta (não é a anon key do Supabase!)
 
-Supabase → Database → Reset database password.
-Se a senha tiver caracteres especiais, use SUPABASE_DB_PASSWORD (sem URL encode manual).
+Passo a passo:
+1. Supabase → Project Settings → Database → Reset database password
+2. Escolha uma senha SIMPLES (só letras e números, sem @ # %)
+3. Database → Connection string → Session pooler → URI → copie TUDO
+4. Render → Environment → DATABASE_URL → cole a URI nova → Save
+5. Redeploy
+
+OU apague DATABASE_URL e use no Render:
+  SUPABASE_PROJECT_REF=tbwvsbpabadfjsjofgph
+  SUPABASE_POOLER_HOST=aws-1-us-west-2.pooler.supabase.com
+  SUPABASE_DB_PASSWORD=senha_que_voce_resetou
 `.trim();
   }
 
