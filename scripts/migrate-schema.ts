@@ -15,16 +15,28 @@ async function main() {
   }
 
   logConnectionInfo();
-  const client = createPostgresClient(1);
+  console.log(
+    `[db] Render=${process.env.RENDER ?? "unset"} | SUPABASE_REGION=${process.env.SUPABASE_REGION ?? "unset"}`
+  );
+
+  let client;
+  try {
+    client = createPostgresClient(1);
+  } catch (error) {
+    console.error("[db] Falha ao criar cliente:", error);
+    console.error("\n" + connectionHelp(error));
+    process.exit(1);
+  }
+
   const db = drizzle(client);
 
   try {
     await client`SELECT 1`;
     console.log("[db] Conectado. Aplicando migrations...");
     await migrate(db, { migrationsFolder: path.join(process.cwd(), "drizzle") });
-    console.log("[db] OK");
+    console.log("[db] Migrations OK");
   } catch (error) {
-    console.error("[db]", error);
+    console.error("[db] Falha:", error);
     console.error("\n" + connectionHelp(error));
     process.exit(1);
   } finally {

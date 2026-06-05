@@ -6,6 +6,7 @@ if [ "${SKIP_DB_MIGRATE:-}" = "1" ]; then
 elif [ -z "${DATABASE_URL:-}" ]; then
   echo "[db] Sem DATABASE_URL — app sobe sem migrate"
 else
+  echo "[db] Iniciando migrate (RENDER=${RENDER:-unset}, SUPABASE_REGION=${SUPABASE_REGION:-unset})"
   npx tsx scripts/migrate-schema.ts
 fi
 

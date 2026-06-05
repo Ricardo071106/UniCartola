@@ -43,11 +43,25 @@ function isDirectSupabaseUrl(url: string): boolean {
   return url.includes("db.") && url.includes(".supabase.co");
 }
 
+export function isOnRender(): boolean {
+  return (
+    process.env.RENDER === "true" ||
+    !!process.env.RENDER_SERVICE_ID ||
+    !!process.env.RENDER_SERVICE_NAME
+  );
+}
+
 function getPoolerHost(): string | undefined {
   const explicit = process.env.SUPABASE_POOLER_HOST?.trim();
   if (explicit) return explicit;
 
-  const region = process.env.SUPABASE_REGION?.trim();
+  let region = process.env.SUPABASE_REGION?.trim();
+  if (!region && isOnRender()) {
+    region = "us-west-2";
+    console.warn(
+      "[db] SUPABASE_REGION ausente no Render — usando fallback us-west-2"
+    );
+  }
   if (!region) return undefined;
 
   // Projetos novos Supabase usam aws-1; antigos aws-0
@@ -88,7 +102,7 @@ function getDatabaseUrl(): string | undefined {
     const poolerHost = getPoolerHost();
     if (poolerHost) {
       url = convertDirectToPooler(url, poolerHost);
-    } else if (process.env.RENDER === "true") {
+    } else if (isOnRender()) {
       console.error(`
 [db] ERRO: Direct connection não funciona no Render (IPv6).
 
@@ -117,7 +131,7 @@ export function createPostgresClient(max = 10) {
     throw new Error("DATABASE_URL não configurada");
   }
 
-  if (isDirectSupabaseUrl(url) && process.env.RENDER === "true") {
+  if (isDirectSupabaseUrl(url) && isOnRender()) {
     throw new Error(
       "DATABASE_URL Direct no Render sem SUPABASE_REGION ou SUPABASE_POOLER_HOST"
     );
@@ -152,23 +166,59 @@ export function logConnectionInfo() {
 }
 
 export function connectionHelp(error?: unknown): string {
-  const msg =
+  const raw =
     error && typeof error === "object" && "message" in error
-      ? String((error as Error).message).toLowerCase()
-      : "";
+      ? String((error as Error).message)
+      : String(error ?? "");
+  const msg = raw.toLowerCase();
+
+  if (
+    msg.includes("direct no render") ||
+    msg.includes("supabase_region")
+  ) {
+    return `
+❌ DATABASE_URL Direct não funciona no Render.
+
+No Render → Environment, adicione:
+  SUPABASE_REGION=us-west-2
+
+Ou troque DATABASE_URL pela URI do Session pooler (Supabase → Database → Session pooler, porta 5432).
+`.trim();
+  }
 
   if (msg.includes("28p01") || msg.includes("password authentication")) {
     return `❌ Senha incorreta — reset em Supabase → Database → Reset password`;
   }
 
-  if (msg.includes("enetunreach")) {
+  if (
+    msg.includes("enetunreach") ||
+    msg.includes("econnrefused") ||
+    msg.includes("getaddrinfo") ||
+    msg.includes("timeout") ||
+    msg.includes("etimedout")
+  ) {
     return `
-❌ ENETUNREACH — Render não acessa Direct (IPv6)
+❌ Não conseguiu conectar ao Postgres.
 
-No Render, adicione: SUPABASE_REGION=us-west-2
-(ou troque DATABASE_URL pelo Session pooler URI do Supabase)
+No Render:
+  1. Confirme DATABASE_URL (Session pooler, porta 5432)
+  2. Adicione SUPABASE_REGION=us-west-2 (se usar URL Direct)
+  3. Verifique se o projeto Supabase não está pausado
+
+Erro: ${raw}
 `.trim();
   }
 
-  return `❌ Erro de conexão. Verifique DATABASE_URL no Render.`;
+  if (msg.includes("already exists") || msg.includes("duplicate")) {
+    return `
+❌ Erro na migration (objeto já existe no banco).
+
+Erro: ${raw}
+
+Tente no Supabase SQL Editor ou localmente:
+  npm run db:migrate
+`.trim();
+  }
+
+  return `❌ Erro de banco: ${raw || "verifique DATABASE_URL no Render"}`;
 }

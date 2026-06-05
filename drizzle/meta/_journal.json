@@ -15,6 +15,13 @@
       "when": 1780622099000,
       "tag": "0001_ndu_stats",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780622100000,
+      "tag": "0002_safe_updated_at",
+      "breakpoints": true
     }
   ]
 }
