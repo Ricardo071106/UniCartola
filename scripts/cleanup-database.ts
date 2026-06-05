@@ -8,7 +8,8 @@
  *   npm run db:cleanup -- --confirm --sync  # limpa + scrape NDU
  */
 import "dotenv/config";
-import { requireDb } from "../src/lib/db";
+import { drizzle } from "drizzle-orm/postgres-js";
+import * as schema from "../src/lib/db/schema";
 import {
   matchesImportQueue,
   players,
@@ -16,7 +17,15 @@ import {
   statisticsImportQueue,
 } from "../src/lib/db/schema";
 import { sql } from "drizzle-orm";
-import { logConnectionInfo } from "../src/lib/db/connection";
+import {
+  connectionHelp,
+  createScriptPostgresClient,
+  logConnectionInfo,
+} from "../src/lib/db/connection";
+import {
+  clearScriptDbOverride,
+  setScriptDbOverride,
+} from "../src/lib/db/script-context";
 import { runFullScrape } from "../src/lib/ndu/sync";
 import {
   cleanupDemoData,
@@ -28,8 +37,43 @@ const args = new Set(process.argv.slice(2));
 const confirm = args.has("--confirm");
 const withSync = args.has("--sync");
 
-async function report() {
-  const db = requireDb();
+function isPoolExhausted(error: unknown): boolean {
+  const msg = String(
+    error && typeof error === "object" && "message" in error
+      ? (error as Error).message
+      : error
+  ).toLowerCase();
+  return msg.includes("emaxconnsession") || msg.includes("max clients reached");
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function connectScriptDb() {
+  const maxAttempts = 5;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const client = createScriptPostgresClient();
+    try {
+      await client`SELECT 1`;
+      const db = drizzle(client, { schema });
+      return { client, db };
+    } catch (error) {
+      await client.end({ timeout: 2 }).catch(() => undefined);
+      if (isPoolExhausted(error) && attempt < maxAttempts) {
+        console.warn(
+          `[cleanup] Pool ocupado — tentativa ${attempt}/${maxAttempts}, aguardando 8s...`
+        );
+        await sleep(8000);
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error("Não foi possível conectar ao banco após várias tentativas");
+}
+
+async function report(db: ReturnType<typeof drizzle<typeof schema>>) {
   const counts = await getCleanupCounts(db);
 
   const [importQueue] = await db
@@ -76,27 +120,37 @@ async function main() {
   }
 
   logConnectionInfo();
-  await report();
 
-  if (!confirm) return;
+  const { client, db } = await connectScriptDb();
+  setScriptDbOverride(db);
 
-  console.log("\n[cleanup] Executando limpeza...");
-  await cleanupDemoData(requireDb());
-  console.log("[cleanup] Concluído.");
+  try {
+    await report(db);
 
-  if (withSync) {
-    console.log("[cleanup] Sincronizando NDU...");
-    const result = await runFullScrape();
-    console.log(
-      `[cleanup] NDU: ${result.athleticsSynced ?? 0} atléticas, ${result.boletimMatches ?? 0} jogos boletim, ${result.created} criados, ${result.statsSynced ?? 0} estatísticas`
-    );
-    if (result.errors.length) {
-      console.warn("[cleanup] Erros NDU:", result.errors.slice(0, 5));
+    if (!confirm) return;
+
+    console.log("\n[cleanup] Executando limpeza...");
+    await cleanupDemoData(db);
+    console.log("[cleanup] Concluído.");
+
+    if (withSync) {
+      console.log("[cleanup] Sincronizando NDU...");
+      const result = await runFullScrape();
+      console.log(
+        `[cleanup] NDU: ${result.athleticsSynced ?? 0} atléticas, ${result.boletimMatches ?? 0} jogos boletim, ${result.created} criados, ${result.statsSynced ?? 0} estatísticas`
+      );
+      if (result.errors.length) {
+        console.warn("[cleanup] Erros NDU:", result.errors.slice(0, 5));
+      }
     }
+  } finally {
+    clearScriptDbOverride();
+    await client.end({ timeout: 10 });
   }
 }
 
 main().catch((e) => {
   console.error("[cleanup]", e);
+  console.error("\n" + connectionHelp(e));
   process.exit(1);
 });

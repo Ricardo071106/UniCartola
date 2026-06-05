@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "./schema";
 import { createPostgresClient } from "./connection";
+import { getScriptDbOverride } from "./script-context";
 
 let client: ReturnType<typeof createPostgresClient> | null = null;
 
@@ -15,6 +16,8 @@ try {
 export const db = client ? drizzle(client, { schema }) : null;
 
 export function requireDb() {
+  const scriptDb = getScriptDbOverride();
+  if (scriptDb) return scriptDb;
   if (!db) {
     throw new Error("DATABASE_URL não configurada.");
   }

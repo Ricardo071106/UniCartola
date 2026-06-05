@@ -1,5 +1,6 @@
 import "dotenv/config";
-import { requireDb } from "../src/lib/db";
+import { drizzle } from "drizzle-orm/postgres-js";
+import * as schema from "../src/lib/db/schema";
 import {
   sports,
   universities,
@@ -7,11 +8,18 @@ import {
   competitions,
 } from "../src/lib/db/schema";
 import { runFullScrape } from "../src/lib/ndu/sync";
-import { logConnectionInfo } from "../src/lib/db/connection";
+import {
+  connectionHelp,
+  createScriptPostgresClient,
+  logConnectionInfo,
+} from "../src/lib/db/connection";
+import {
+  clearScriptDbOverride,
+  setScriptDbOverride,
+} from "../src/lib/db/script-context";
 import { cleanupDemoData } from "./cleanup-database-lib";
 
-async function ensureMinimalData() {
-  const db = requireDb();
+async function ensureMinimalData(db: ReturnType<typeof drizzle<typeof schema>>) {
 
   const existingSports = await db.select().from(sports);
   if (existingSports.length === 0) {
@@ -80,20 +88,31 @@ async function main() {
   }
 
   logConnectionInfo();
-  await ensureMinimalData();
-  await cleanupDemoData(requireDb());
+  const client = createScriptPostgresClient();
+  const db = drizzle(client, { schema });
+  setScriptDbOverride(db);
 
-  console.log("[bootstrap] Sincronizando dados da NDU...");
-  const result = await runFullScrape();
-  console.log(
-    `[bootstrap] NDU: ${result.athleticsSynced ?? 0} atléticas, ${result.boletimMatches ?? 0} jogos do boletim${result.boletimTitle ? ` (${result.boletimTitle})` : ""}, ${result.parsed ?? result.total} total, ${result.created} criados, ${result.statsSynced ?? 0} artilheiros/estatísticas`
-  );
-  if (result.errors.length) {
-    console.warn("[bootstrap] Erros:", result.errors.slice(0, 5));
+  try {
+    await client`SELECT 1`;
+    await ensureMinimalData(db);
+    await cleanupDemoData(db);
+
+    console.log("[bootstrap] Sincronizando dados da NDU...");
+    const result = await runFullScrape();
+    console.log(
+      `[bootstrap] NDU: ${result.athleticsSynced ?? 0} atléticas, ${result.boletimMatches ?? 0} jogos do boletim${result.boletimTitle ? ` (${result.boletimTitle})` : ""}, ${result.parsed ?? result.total} total, ${result.created} criados, ${result.statsSynced ?? 0} artilheiros/estatísticas`
+    );
+    if (result.errors.length) {
+      console.warn("[bootstrap] Erros:", result.errors.slice(0, 5));
+    }
+  } finally {
+    clearScriptDbOverride();
+    await client.end({ timeout: 10 });
   }
 }
 
 main().catch((e) => {
   console.error("[bootstrap]", e);
+  console.error("\n" + connectionHelp(e));
   process.exit(1);
 });

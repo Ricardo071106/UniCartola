@@ -145,6 +145,44 @@ export function createPostgresClient(max = 10) {
   });
 }
 
+/** Transaction pooler (:6543) — não compete com o limite de sessões do app (:5432). */
+export function getScriptDatabaseUrl(): string {
+  const url = getDatabaseUrl();
+  if (!url) {
+    throw new Error("DATABASE_URL não configurada");
+  }
+
+  if (url.includes(".pooler.supabase.com") && !url.includes(":6543")) {
+    const txUrl = url.replace(/:5432(?=\/|$)/, ":6543");
+    if (txUrl !== url) {
+      console.log(
+        "[db] Script: transaction pooler :6543 (não usa pool de sessões do app)"
+      );
+      return txUrl;
+    }
+  }
+
+  return url;
+}
+
+export function createScriptPostgresClient() {
+  const url = getScriptDatabaseUrl();
+
+  if (isDirectSupabaseUrl(url) && isOnRender()) {
+    throw new Error(
+      "DATABASE_URL Direct no Render sem SUPABASE_REGION ou SUPABASE_POOLER_HOST"
+    );
+  }
+
+  return postgres(url, {
+    max: 1,
+    prepare: false,
+    ssl: url.includes("supabase") ? "require" : false,
+    connect_timeout: 60,
+    idle_timeout: 10,
+  });
+}
+
 export function logConnectionInfo() {
   const url = getDatabaseUrl();
   if (!url) {
@@ -204,6 +242,21 @@ No Render:
   1. Confirme DATABASE_URL (Session pooler, porta 5432)
   2. Adicione SUPABASE_REGION=us-west-2 (se usar URL Direct)
   3. Verifique se o projeto Supabase não está pausado
+
+Erro: ${raw}
+`.trim();
+  }
+
+  if (
+    msg.includes("emaxconnsession") ||
+    msg.includes("max clients reached")
+  ) {
+    return `
+❌ Pool de sessões do Supabase cheio (app + scrape usando as 15 conexões).
+
+Scripts (db:cleanup, ndu:sync) agora usam transaction pooler :6543.
+Se ainda falhar, aguarde 30s e tente de novo, ou pause o scrape:
+  SKIP_NDU_SCRAPE=1 no Render → redeploy → rode o script → remova SKIP_NDU_SCRAPE.
 
 Erro: ${raw}
 `.trim();
