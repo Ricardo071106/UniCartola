@@ -8,6 +8,7 @@ import {
 import { and, eq, inArray } from "drizzle-orm";
 
 import { isPlayoffPhase } from "@/lib/ndu/playoff-phases";
+import { realMatchesOnly } from "./match-filters";
 import type { SportSlug, StandingsEntry } from "@/types";
 
 const SERIES = ["A", "B", "C", "D", "E", "F"] as const;
@@ -33,6 +34,7 @@ export async function getStandingsBySeries(
     .from(matches)
     .where(
       and(
+        realMatchesOnly(),
         eq(matches.sportId, sport.id),
         eq(matches.series, series),
         eq(matches.status, "finished")

@@ -14,18 +14,16 @@ interface MatchCardProps {
 function TeamBadge({
   name,
   logoUrl,
-  showFullName,
 }: {
   name: string;
   logoUrl: string | null;
-  showFullName: boolean;
 }) {
   return (
     <div className="flex min-w-[80px] max-w-[110px] flex-col items-center gap-1">
       {logoUrl ? (
         <Image
           src={logoUrl}
-          alt={name}
+          alt=""
           width={48}
           height={48}
           className="h-12 w-12 rounded-full object-cover ring-2 ring-zinc-700"
@@ -39,11 +37,6 @@ function TeamBadge({
       <span className="line-clamp-2 text-center text-xs font-semibold leading-tight text-white">
         {name}
       </span>
-      {showFullName && (
-        <span className="line-clamp-1 max-w-[100px] text-center text-[10px] text-zinc-500">
-          {name}
-        </span>
-      )}
     </div>
   );
 }
@@ -85,7 +78,6 @@ export function MatchCard({ match, compact = false }: MatchCardProps) {
             <TeamBadge
               name={match.homeTeam.name}
               logoUrl={match.homeTeam.logoUrl}
-              showFullName={!compact}
             />
             <div className="flex shrink-0 flex-col items-center px-2">
               <span className="text-xl font-bold text-white">{score}</span>
@@ -96,7 +88,6 @@ export function MatchCard({ match, compact = false }: MatchCardProps) {
             <TeamBadge
               name={match.awayTeam.name}
               logoUrl={match.awayTeam.logoUrl}
-              showFullName={!compact}
             />
           </div>
 

@@ -1,6 +1,13 @@
 import "dotenv/config";
 import { requireDb } from "../src/lib/db";
-import { sports, universities, seasons, competitions } from "../src/lib/db/schema";
+import {
+  sports,
+  universities,
+  seasons,
+  competitions,
+  matches,
+} from "../src/lib/db/schema";
+import { like } from "drizzle-orm";
 import { runFullScrape } from "../src/lib/ndu/sync";
 import { logConnectionInfo } from "../src/lib/db/connection";
 
@@ -67,6 +74,19 @@ async function ensureMinimalData() {
   }
 }
 
+async function purgeSeedMatches() {
+  const db = requireDb();
+  const removed = await db
+    .delete(matches)
+    .where(like(matches.externalKey, "seed:%"))
+    .returning({ id: matches.id });
+  if (removed.length > 0) {
+    console.log(
+      `[bootstrap] Removidos ${removed.length} jogos de demonstração (seed)`
+    );
+  }
+}
+
 async function main() {
   if (!process.env.DATABASE_URL?.trim()) {
     console.log("[bootstrap] Sem DATABASE_URL — pulando");
@@ -75,6 +95,7 @@ async function main() {
 
   logConnectionInfo();
   await ensureMinimalData();
+  await purgeSeedMatches();
 
   console.log("[bootstrap] Sincronizando dados da NDU...");
   const result = await runFullScrape();

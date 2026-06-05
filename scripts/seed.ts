@@ -247,14 +247,11 @@ async function main() {
 
   await db.insert(schema.achievements).values(ACHIEVEMENTS);
 
-  const modalities = [
-    "Futebol Masculino",
-    "Futebol Feminino",
-    "Futsal Masculino",
-    "Futsal Feminino",
-    "Basquete Masculino",
-    "Basquete Feminino",
-  ];
+  const modalitiesBySport: Record<string, string[]> = {
+    futebol: ["Futebol Masculino", "Futebol Feminino"],
+    futsal: ["Futsal Masculino", "Futsal Feminino"],
+    basquete: ["Basquete Masculino", "Basquete Feminino"],
+  };
 
   const SERIES = ["A", "B", "C", "D", "E", "F"] as const;
   const PLAYER_NAMES = [
@@ -303,7 +300,7 @@ async function main() {
       awayUniversityId: away.id,
       homeAthleticsId: homeAth?.id ?? null,
       awayAthleticsId: awayAth?.id ?? null,
-      modality: pick(modalities),
+      modality: pick(modalitiesBySport[sport.slug] ?? ["Futsal Masculino"]),
       series,
       groupName: pick(["1", "2", "3"]),
       homeTeamName,

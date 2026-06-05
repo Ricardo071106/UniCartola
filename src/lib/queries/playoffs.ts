@@ -3,6 +3,7 @@ import { requireDb } from "@/lib/db";
 import { matches, sports, seasons, universities, athletics } from "@/lib/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { isPlayoffPhase, normalizePlayoffPhase } from "@/lib/ndu/playoff-phases";
+import { realMatchesOnly } from "./match-filters";
 import { modalityToSportSlug, normalizeTeamName } from "@/lib/ndu/normalize";
 
 type BoletimPlayoffRow = {
@@ -187,7 +188,13 @@ async function getPlayoffBracketFromDb(
   const allSeriesMatches = await db
     .select()
     .from(matches)
-    .where(and(eq(matches.sportId, sport.id), eq(matches.series, series)));
+    .where(
+      and(
+        realMatchesOnly(),
+        eq(matches.sportId, sport.id),
+        eq(matches.series, series)
+      )
+    );
 
   const playoffRows = allSeriesMatches.filter((m) =>
     isPlayoffPhase(m.groupName)

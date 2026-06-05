@@ -8,6 +8,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, gte, lte, desc, asc, inArray } from "drizzle-orm";
 import type { MatchWithTeams, SportSlug } from "@/types";
+import { realMatchesOnly } from "./match-filters";
 
 async function enrichMatches(
   raw: (typeof matches.$inferSelect)[]
@@ -116,7 +117,7 @@ export async function getFeaturedMatch(): Promise<MatchWithTeams | null> {
   let rows = await db
     .select()
     .from(matches)
-    .where(eq(matches.isFeatured, true))
+    .where(and(realMatchesOnly(), eq(matches.isFeatured, true)))
     .orderBy(asc(matches.scheduledAt))
     .limit(1);
 
@@ -124,7 +125,7 @@ export async function getFeaturedMatch(): Promise<MatchWithTeams | null> {
     rows = await db
       .select()
       .from(matches)
-      .where(eq(matches.status, "scheduled"))
+      .where(and(realMatchesOnly(), eq(matches.status, "scheduled")))
       .orderBy(asc(matches.scheduledAt))
       .limit(1);
   }
@@ -140,6 +141,7 @@ export async function getUpcomingMatches(limit = 8): Promise<MatchWithTeams[]> {
     .from(matches)
     .where(
       and(
+        realMatchesOnly(),
         eq(matches.status, "scheduled"),
         gte(matches.scheduledAt, new Date())
       )
@@ -154,7 +156,7 @@ export async function getRecentMatches(limit = 6): Promise<MatchWithTeams[]> {
   const rows = await db
     .select()
     .from(matches)
-    .where(eq(matches.status, "finished"))
+    .where(and(realMatchesOnly(), eq(matches.status, "finished")))
     .orderBy(desc(matches.scheduledAt))
     .limit(limit);
   return enrichMatches(rows);
@@ -189,7 +191,7 @@ export async function getMatchesByFilter(options: {
     rows = await db
       .select()
       .from(matches)
-      .where(eq(matches.status, "finished"))
+      .where(and(realMatchesOnly(), eq(matches.status, "finished")))
       .orderBy(desc(matches.scheduledAt))
       .limit(50);
   } else if (options.tab === "today") {
@@ -198,6 +200,7 @@ export async function getMatchesByFilter(options: {
       .from(matches)
       .where(
         and(
+          realMatchesOnly(),
           gte(matches.scheduledAt, startOfDay(now)),
           lte(matches.scheduledAt, endOfDay(now))
         )
@@ -209,6 +212,7 @@ export async function getMatchesByFilter(options: {
       .from(matches)
       .where(
         and(
+          realMatchesOnly(),
           gte(matches.scheduledAt, startOfDay(tomorrow)),
           lte(matches.scheduledAt, endOfDay(tomorrow))
         )
@@ -220,6 +224,7 @@ export async function getMatchesByFilter(options: {
       .from(matches)
       .where(
         and(
+          realMatchesOnly(),
           gte(matches.scheduledAt, now),
           lte(matches.scheduledAt, weekEnd)
         )

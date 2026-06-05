@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { normalizeTeamName } from "@/lib/ndu/normalize";
+import { realMatchesOnly } from "./match-filters";
 import type { ScorerEntry, SportSlug } from "@/types";
 import type { SeriesLetter } from "./standings";
 
@@ -121,6 +122,7 @@ export async function getTopGoalScorers(
     .innerJoin(matchStats, eq(matchStats.matchId, matches.id))
     .where(
       and(
+        realMatchesOnly(),
         eq(matches.sportId, sport.id),
         eq(matches.series, series),
         eq(matches.status, "finished")
@@ -180,6 +182,7 @@ export async function getTopPointScorers(
     .innerJoin(matchStats, eq(matchStats.matchId, matches.id))
     .where(
       and(
+        realMatchesOnly(),
         eq(matches.sportId, sport.id),
         eq(matches.series, series),
         eq(matches.status, "finished")
