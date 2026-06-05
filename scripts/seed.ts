@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "../src/lib/db/schema";
 import {
   createPostgresClient,
-  getConnectionString,
+  getConnectionConfig,
   logConnectionPreview,
 } from "../src/lib/db/connection";
 import { eq } from "drizzle-orm";
@@ -115,14 +115,13 @@ function pick<T>(arr: T[]): T {
 }
 
 async function main() {
-  const url = getConnectionString();
-  if (!url) {
-    console.error("DATABASE_URL is required");
+  if (!getConnectionConfig()) {
+    console.error("DATABASE_URL ou SUPABASE_* is required");
     process.exit(1);
   }
 
-  logConnectionPreview(url);
-  const client = createPostgresClient(url, 1);
+  logConnectionPreview();
+  const client = createPostgresClient(1);
   const db = drizzle(client, { schema });
 
   console.log("🌱 Seeding Campus League...");

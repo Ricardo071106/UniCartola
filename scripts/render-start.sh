@@ -3,7 +3,7 @@ set -euo pipefail
 
 if [ "${SKIP_DB_MIGRATE:-}" = "1" ]; then
   echo "[db] SKIP_DB_MIGRATE=1 — pulando migrate"
-elif [ -z "${DATABASE_URL:-}" ] && [ -z "${SUPABASE_DB_PASSWORD:-}" ]; then
+elif [ -z "${DATABASE_URL:-}" ] && [ -z "${SUPABASE_DB_PASSWORD:-}" ] && [ -z "${SUPABASE_PROJECT_REF:-}" ]; then
   echo "[db] AVISO: sem DATABASE_URL — app sobe sem migrate"
 else
   echo "[db] Aplicando migrations..."

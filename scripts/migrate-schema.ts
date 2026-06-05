@@ -4,22 +4,21 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import path from "node:path";
 import {
   createPostgresClient,
-  getConnectionString,
   logConnectionPreview,
   supabaseConnectionHelp,
 } from "../src/lib/db/connection";
 
 async function main() {
-  const url = getConnectionString();
+  logConnectionPreview();
 
-  if (!url) {
-    console.log("[db] DATABASE_URL não definida — pulando migrate.");
+  let client;
+  try {
+    client = createPostgresClient(1);
+  } catch {
+    console.log("[db] Sem credenciais — pulando migrate.");
     return;
   }
 
-  logConnectionPreview(url);
-
-  const client = createPostgresClient(url, 1);
   const db = drizzle(client);
 
   try {

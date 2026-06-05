@@ -13,7 +13,7 @@ if (!url) {
   process.exit(0);
 }
 
-logConnectionPreview(url);
+logConnectionPreview();
 
 try {
   execSync("npx drizzle-kit push --force", {
