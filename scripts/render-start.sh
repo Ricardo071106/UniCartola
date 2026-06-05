@@ -2,22 +2,15 @@
 set -euo pipefail
 
 if [ "${SKIP_DB_MIGRATE:-}" = "1" ]; then
-  echo "[db] SKIP_DB_MIGRATE=1 — pulando migrate"
-elif [ -z "${DATABASE_URL:-}" ] && [ -z "${SUPABASE_DB_PASSWORD:-}" ] && [ -z "${SUPABASE_PROJECT_REF:-}" ]; then
-  echo "[db] AVISO: sem DATABASE_URL — app sobe sem migrate"
+  echo "[db] SKIP_DB_MIGRATE=1"
+elif [ -z "${DATABASE_URL:-}" ]; then
+  echo "[db] Sem DATABASE_URL — app sobe sem migrate"
 else
-  echo "[db] Aplicando migrations..."
-  if ! npx tsx scripts/migrate-schema.ts; then
-    echo ""
-    echo "[db] FALHA. Corrija DATABASE_URL ou use SKIP_DB_MIGRATE=1 temporariamente."
-    exit 1
-  fi
+  npx tsx scripts/migrate-schema.ts
 fi
 
 if [ "${RUN_DB_SEED:-}" = "1" ]; then
-  echo "[db] RUN_DB_SEED=1 — populando dados mock..."
-  npm run db:seed || echo "[db] seed falhou (pode já estar populado)"
+  npm run db:seed || true
 fi
 
-echo "==> Starting Next.js on port ${PORT:-3000}..."
 exec npm start

@@ -11,7 +11,7 @@
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:push": "bash scripts/db-push.sh",
-    "db:push:local": "bash -c 'unset RENDER; bash scripts/db-push.sh'",
+    "db:push:local": "bash scripts/db-push.sh",
     "db:migrate": "tsx scripts/migrate-schema.ts",
     "build:render": "npm install --include=dev && npm run build",
     "db:studio": "drizzle-kit studio",
