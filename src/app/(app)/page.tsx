@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { HomeDashboard } from "@/components/home/HomeDashboard";
 import { getStandingsBySeries, SERIES } from "@/lib/queries/standings";
 import { getTopGoalScorers, getTopPointScorers } from "@/lib/queries/scorers";
+import { getPlayoffBracket } from "@/lib/queries/playoffs";
 import { safeQuery } from "@/lib/db/safe-query";
 import type { SportSlug } from "@/types";
 
@@ -26,11 +27,13 @@ export default async function HomePage({
       : "A"
   ) as (typeof SERIES)[number];
 
-  const [standings, goalScorers, pointScorers] = await Promise.all([
-    safeQuery(() => getStandingsBySeries(sport, series), []),
-    safeQuery(() => getTopGoalScorers(sport, series, 10), []),
-    safeQuery(() => getTopPointScorers(sport, series, 10), []),
-  ]);
+  const [standings, playoffBracket, goalScorers, pointScorers] =
+    await Promise.all([
+      safeQuery(() => getStandingsBySeries(sport, series), []),
+      safeQuery(() => getPlayoffBracket(sport, series), null),
+      safeQuery(() => getTopGoalScorers(sport, series, 10), []),
+      safeQuery(() => getTopPointScorers(sport, series, 10), []),
+    ]);
 
   return (
     <Suspense fallback={<div className="py-12 text-center text-zinc-400">Carregando...</div>}>
@@ -38,6 +41,7 @@ export default async function HomePage({
         sport={sport}
         series={series}
         standings={standings}
+        playoffBracket={playoffBracket}
         goalScorers={goalScorers}
         pointScorers={pointScorers}
       />

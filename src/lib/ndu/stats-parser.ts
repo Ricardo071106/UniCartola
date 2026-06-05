@@ -20,7 +20,7 @@ export function parseNduStatsPage(
   $("h3").each((_, h3) => {
     const title = $(h3).text().toLowerCase();
     const isScorerSection = isBasketball
-      ? title.includes("cestinha")
+      ? title.includes("artilheiro") || title.includes("cestinha")
       : title.includes("artilheiro");
     if (!isScorerSection) return;
 

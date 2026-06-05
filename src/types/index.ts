@@ -132,6 +132,24 @@ export interface ScorerEntry {
   total: number;
 }
 
+export interface PlayoffMatch {
+  id: string;
+  phase: string;
+  scheduledAt: Date;
+  homeName: string;
+  awayName: string;
+  homeLogoUrl: string | null;
+  awayLogoUrl: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
+  status: MatchStatus;
+  winnerSide: "home" | "away" | "draw" | null;
+}
+
+export interface PlayoffBracket {
+  rounds: { phase: string; matches: PlayoffMatch[] }[];
+}
+
 export interface UserProfile {
   id: string;
   nickname: string;

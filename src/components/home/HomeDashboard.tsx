@@ -6,7 +6,13 @@ import { cn } from "@/lib/utils";
 import { SPORT_ICONS } from "@/lib/constants/sports";
 import { StandingsTable } from "./StandingsTable";
 import { ScorersTable } from "./ScorersTable";
-import type { ScorerEntry, SportSlug, StandingsEntry } from "@/types";
+import { PlayoffBracket } from "./PlayoffBracket";
+import type {
+  PlayoffBracket as PlayoffBracketData,
+  ScorerEntry,
+  SportSlug,
+  StandingsEntry,
+} from "@/types";
 
 const SERIES = ["A", "B", "C", "D", "E", "F"] as const;
 
@@ -14,6 +20,7 @@ type Props = {
   sport: SportSlug;
   series: (typeof SERIES)[number];
   standings: StandingsEntry[];
+  playoffBracket: PlayoffBracketData | null;
   goalScorers: ScorerEntry[];
   pointScorers: ScorerEntry[];
 };
@@ -22,6 +29,7 @@ export function HomeDashboard({
   sport,
   series,
   standings,
+  playoffBracket,
   goalScorers,
   pointScorers,
 }: Props) {
@@ -103,6 +111,16 @@ export function HomeDashboard({
         <div className="px-2 pb-2">
           <StandingsTable entries={standings} />
         </div>
+      </section>
+
+      <section className="cartola-card overflow-hidden">
+        <div className="border-b border-zinc-800 bg-zinc-900 px-4 py-3">
+          <h2 className="text-base font-black text-white">Mata-mata</h2>
+          <p className="text-xs font-medium text-zinc-500">
+            {sportLabel} · Série {series}
+          </p>
+        </div>
+        <PlayoffBracket bracket={playoffBracket} />
       </section>
 
       <section className="cartola-card overflow-hidden">

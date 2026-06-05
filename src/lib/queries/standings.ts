@@ -5,7 +5,9 @@ import {
   universities,
   athletics,
 } from "@/lib/db/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
+
+const PLAYOFF_PHASES = ["Oitavas", "Quartas", "Semi", "Final"];
 import type { SportSlug, StandingsEntry } from "@/types";
 
 const SERIES = ["A", "B", "C", "D", "E", "F"] as const;
@@ -33,7 +35,14 @@ export async function getStandingsBySeries(
       and(
         eq(matches.sportId, sport.id),
         eq(matches.series, series),
-        eq(matches.status, "finished")
+        eq(matches.status, "finished"),
+        or(
+          sql`${matches.groupName} IS NULL`,
+          sql`lower(${matches.groupName}) NOT IN (${sql.join(
+            PLAYOFF_PHASES.map((p) => sql`lower(${p})`),
+            sql`, `
+          )})`
+        )
       )
     );
 

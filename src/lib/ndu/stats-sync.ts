@@ -1,11 +1,50 @@
 import { requireDb } from "@/lib/db";
-import { athletics, nduScorerStats } from "@/lib/db/schema";
+import { athletics, matches, nduScorerStats, sports } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { NDU_MODALITY_IDS } from "./constants";
 import { fetchNduStatsFragment } from "./fetch";
 import { parseNduStatsPage } from "./stats-parser";
 
 const SERIES = ["A", "B", "C", "D", "E", "F"] as const;
+
+async function athleticNduIdsInSeries(
+  sportSlug: string,
+  series: string
+): Promise<Set<number>> {
+  const db = requireDb();
+  const [sport] = await db
+    .select()
+    .from(sports)
+    .where(eq(sports.slug, sportSlug))
+    .limit(1);
+  if (!sport) return new Set();
+
+  const rows = await db
+    .select({
+      homeAthleticsId: matches.homeAthleticsId,
+      awayAthleticsId: matches.awayAthleticsId,
+    })
+    .from(matches)
+    .where(and(eq(matches.sportId, sport.id), eq(matches.series, series)));
+
+  const athIds = [
+    ...new Set(
+      rows
+        .flatMap((r) => [r.homeAthleticsId, r.awayAthleticsId])
+        .filter(Boolean)
+    ),
+  ] as string[];
+
+  if (athIds.length === 0) return new Set();
+
+  const athRows = await db.select().from(athletics);
+  const ids = new Set<number>();
+  for (const id of athIds) {
+    const ath = athRows.find((a) => a.id === id);
+    if (ath?.nduAthleticId != null) ids.add(ath.nduAthleticId);
+  }
+  return ids;
+}
 
 export async function syncNduStats(year = 2026): Promise<number> {
   const db = requireDb();
@@ -45,8 +84,23 @@ export async function syncNduStats(year = 2026): Promise<number> {
           series,
           String(year)
         );
-        const scorers = parseNduStatsPage(html, job.isBasketball);
+        let scorers = parseNduStatsPage(html, job.isBasketball);
         if (scorers.length === 0) continue;
+
+        if (job.isBasketball) {
+          const seriesAthletics = await athleticNduIdsInSeries(
+            job.sportSlug,
+            series
+          );
+          if (seriesAthletics.size > 0) {
+            scorers = scorers.filter(
+              (s) =>
+                s.athleticNduId != null &&
+                seriesAthletics.has(s.athleticNduId)
+            );
+          }
+          if (scorers.length === 0) continue;
+        }
 
         await db
           .delete(nduScorerStats)
