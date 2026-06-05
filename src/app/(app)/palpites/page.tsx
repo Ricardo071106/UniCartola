@@ -3,7 +3,7 @@ import { PalpitesClient } from "./PalpitesClient";
 import { getMatchesByFilter } from "@/lib/queries/matches";
 import { getUserMarketPredictions } from "@/lib/queries/market-predictions";
 import { getUserPredictionsForMatches } from "@/lib/queries/predictions";
-import { SERIES } from "@/lib/queries/standings";
+import { parseSeries } from "@/lib/queries/standings";
 import { getSession } from "@/lib/auth/session";
 import { getCurrencyMode } from "@/lib/currency/server";
 import { requireDb } from "@/lib/db";
@@ -24,11 +24,7 @@ export default async function PalpitesPage({
       ? params.sport
       : "futsal"
   ) as SportSlug;
-  const series = (
-    SERIES.includes((params.series ?? "A") as (typeof SERIES)[number])
-      ? params.series
-      : "A"
-  ) as (typeof SERIES)[number];
+  const series = parseSeries(params.series);
 
   const session = await getSession();
   const currencyMode = await getCurrencyMode();

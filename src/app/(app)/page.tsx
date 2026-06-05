@@ -1,5 +1,5 @@
 import { HomeDashboardShell } from "./home-dashboard";
-import { getStandingsBySeries, SERIES } from "@/lib/queries/standings";
+import { getStandingsBySeries, parseSeries } from "@/lib/queries/standings";
 import { getTopGoalScorers, getTopPointScorers } from "@/lib/queries/scorers";
 import { getPlayoffBracket } from "@/lib/queries/playoffs";
 import { safeQuery } from "@/lib/db/safe-query";
@@ -20,11 +20,7 @@ export default async function HomePage({
       ? params.sport
       : "futsal"
   ) as SportSlug;
-  const series = (
-    SERIES.includes((params.series ?? "A") as (typeof SERIES)[number])
-      ? params.series
-      : "A"
-  ) as (typeof SERIES)[number];
+  const series = parseSeries(params.series);
 
   const [standings, playoffBracket, goalScorers, pointScorers] =
     await Promise.all([

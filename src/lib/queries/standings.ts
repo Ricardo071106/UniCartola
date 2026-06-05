@@ -15,6 +15,13 @@ const SERIES = ["A", "B", "C", "D", "E", "F"] as const;
 export type SeriesLetter = (typeof SERIES)[number];
 export { SERIES };
 
+export function parseSeries(value?: string | null): SeriesLetter {
+  const candidate = (value?.trim() || "A").toUpperCase();
+  return SERIES.includes(candidate as SeriesLetter)
+    ? (candidate as SeriesLetter)
+    : "A";
+}
+
 export async function getStandingsBySeries(
   sportSlug: SportSlug,
   series: SeriesLetter

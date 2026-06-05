@@ -16,14 +16,18 @@ export default async function AppLayout({
   let playBalance = 10000;
   let realBalance = 0;
   if (session) {
-    const db = requireDb();
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, session.userId))
-      .limit(1);
-    playBalance = user?.playBalance ?? 10000;
-    realBalance = user?.realBalance ?? 0;
+    try {
+      const db = requireDb();
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, session.userId))
+        .limit(1);
+      playBalance = user?.playBalance ?? 10000;
+      realBalance = user?.realBalance ?? 0;
+    } catch (error) {
+      console.error("[layout] Falha ao carregar saldo do usuário:", error);
+    }
   }
 
   return (
