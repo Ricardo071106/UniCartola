@@ -56,17 +56,25 @@ Acesse [http://localhost:3000](http://localhost:3000). No primeiro acesso, compl
 
 ## Deploy no Render
 
-1. Conecte o repositório no Render
-2. Use o blueprint `render.yaml` ou crie um Web Service Node
-3. Configure `DATABASE_URL` (PostgreSQL Supabase ou Render Postgres)
-4. `SESSION_SECRET` pode ser gerado automaticamente
-5. O build executa `db:push` e `npm run build`
+| Campo | Valor |
+|-------|--------|
+| **Root Directory** | *(vazio)* |
+| **Build Command** | `chmod +x scripts/render-build.sh && ./scripts/render-build.sh` |
+| **Start Command** | `chmod +x scripts/render-start.sh && npm run start:prod` |
 
-Após o deploy, rode o seed uma vez (Shell do Render):
+**Não** rode `db:push` no build — o build não precisa de banco. O schema sincroniza no **start** (quando `DATABASE_URL` já existe).
 
-```bash
-npm run db:seed
-```
+### Variáveis de ambiente
+
+- `DATABASE_URL` — PostgreSQL (Supabase: use **Session pooler**, porta 5432, ou Internal URL se Postgres for no Render)
+- `SESSION_SECRET` — string longa aleatória
+- `NEXT_PUBLIC_APP_URL` — URL do app (ex: `https://seu-app.onrender.com`)
+
+### Seed (primeira vez)
+
+No Environment, adicione temporariamente `RUN_DB_SEED=1`, faça deploy, e depois **remova** a variável.
+
+Ou no Shell: `npm run db:seed`
 
 ## Scripts
 
