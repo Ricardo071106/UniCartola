@@ -21,14 +21,14 @@ function TeamBadge({
 }) {
   return (
     <div className="flex flex-col items-center gap-1 min-w-[72px]">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-sm font-bold text-[#1e3a5f]">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-800 text-sm font-bold text-[#00a86b]">
         {shortName.slice(0, 3)}
       </div>
-      <span className="text-xs font-semibold text-gray-900 text-center line-clamp-1">
+      <span className="text-xs font-semibold text-white text-center line-clamp-1">
         {shortName}
       </span>
       {showFullName && (
-        <span className="text-[10px] text-gray-500 text-center line-clamp-1 max-w-[80px]">
+        <span className="text-[10px] text-zinc-500 text-center line-clamp-1 max-w-[80px]">
           {name}
         </span>
       )}
@@ -74,8 +74,8 @@ export function MatchCard({ match, compact = false }: MatchCardProps) {
               showFullName={!compact}
             />
             <div className="flex flex-col items-center px-2">
-              <span className="text-xl font-bold text-gray-900">{score}</span>
-              <span className="text-[10px] text-gray-500 uppercase tracking-wide">
+              <span className="text-xl font-bold text-white">{score}</span>
+              <span className="text-[10px] text-zinc-500 uppercase tracking-wide">
                 {match.sport.name}
               </span>
             </div>
@@ -87,7 +87,7 @@ export function MatchCard({ match, compact = false }: MatchCardProps) {
           </div>
 
           {!compact && (
-            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {formatMatchDate(match.scheduledAt)} ·{" "}

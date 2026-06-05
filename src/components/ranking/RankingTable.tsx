@@ -15,9 +15,9 @@ export function RankingTable({
 }: RankingTableProps) {
   if (type === "universities") {
     return (
-      <div className="overflow-hidden rounded-xl border border-gray-100">
+      <div className="overflow-hidden rounded-xl border border-zinc-800">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+          <thead className="bg-zinc-900 text-left text-xs uppercase text-zinc-500">
             <tr>
               <th className="px-4 py-3 font-semibold">#</th>
               <th className="px-4 py-3 font-semibold">Faculdade</th>
@@ -28,15 +28,15 @@ export function RankingTable({
             {universityEntries.map((entry) => (
               <tr
                 key={entry.universityId}
-                className="border-t border-gray-50 hover:bg-gray-50/50"
+                className="border-t border-zinc-800 hover:bg-zinc-900/50"
               >
-                <td className="px-4 py-3 font-bold text-gray-500">
+                <td className="px-4 py-3 font-bold text-zinc-500">
                   {entry.rank <= 3 ? (
                     <Trophy
                       className={cn(
                         "h-4 w-4",
                         entry.rank === 1 && "text-amber-500",
-                        entry.rank === 2 && "text-gray-400",
+                        entry.rank === 2 && "text-zinc-400",
                         entry.rank === 3 && "text-orange-400"
                       )}
                     />
@@ -45,14 +45,14 @@ export function RankingTable({
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-white">
                     {entry.shortName}
                   </span>
-                  <span className="block text-xs text-gray-500">
+                  <span className="block text-xs text-zinc-500">
                     {entry.name}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right font-bold text-[#1e3a5f]">
+                <td className="px-4 py-3 text-right font-bold text-[#00a86b]">
                   {entry.totalPoints.toLocaleString("pt-BR")}
                 </td>
               </tr>
@@ -60,16 +60,16 @@ export function RankingTable({
           </tbody>
         </table>
         {universityEntries.length === 0 && (
-          <p className="p-6 text-center text-gray-500">Sem dados</p>
+          <p className="p-6 text-center text-zinc-400">Sem dados</p>
         )}
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-100">
+    <div className="overflow-hidden rounded-xl border border-zinc-800">
       <table className="w-full text-sm">
-        <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+        <thead className="bg-zinc-900 text-left text-xs uppercase text-zinc-500">
           <tr>
             <th className="px-4 py-3 font-semibold">#</th>
             <th className="px-4 py-3 font-semibold">Jogador</th>
@@ -83,18 +83,18 @@ export function RankingTable({
           {userEntries.map((entry) => (
             <tr
               key={entry.userId}
-              className="border-t border-gray-50 hover:bg-gray-50/50"
+              className="border-t border-zinc-800 hover:bg-zinc-900/50"
             >
-              <td className="px-4 py-3 font-bold text-gray-500 w-12">
+              <td className="px-4 py-3 font-bold text-zinc-500 w-12">
                 {entry.rank}
               </td>
-              <td className="px-4 py-3 font-semibold text-gray-900">
+              <td className="px-4 py-3 font-semibold text-white">
                 {entry.nickname}
               </td>
-              <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">
+              <td className="px-4 py-3 text-zinc-500 hidden sm:table-cell">
                 {entry.universityShortName ?? "—"}
               </td>
-              <td className="px-4 py-3 text-right font-bold text-[#1e3a5f]">
+              <td className="px-4 py-3 text-right font-bold text-[#00a86b]">
                 {entry.points}
               </td>
             </tr>
@@ -102,7 +102,7 @@ export function RankingTable({
         </tbody>
       </table>
       {userEntries.length === 0 && (
-        <p className="p-6 text-center text-gray-500">Sem dados</p>
+        <p className="p-6 text-center text-zinc-400">Sem dados</p>
       )}
     </div>
   );

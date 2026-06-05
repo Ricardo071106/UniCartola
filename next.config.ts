@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "api.dicebear.com" },
       { protocol: "https", hostname: "www.ndu.net.br" },
       { protocol: "http", hostname: "www.ndu.net.br" },
+      { protocol: "https", hostname: "www.ndu.com.br" },
+      { protocol: "https", hostname: "upload.wikimedia.org" },
     ],
   },
 };

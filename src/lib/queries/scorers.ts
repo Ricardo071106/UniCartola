@@ -7,11 +7,22 @@ import {
   universities,
 } from "@/lib/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
+import { normalizeTeamName } from "@/lib/ndu/normalize";
 import type { ScorerEntry, SportSlug } from "@/types";
 import type { SeriesLetter } from "./standings";
 
-type GoalScorerJson = { name: string; team?: string; goals: number };
-type TopScorerJson = { name: string; team?: string; points: number };
+type GoalScorerJson = {
+  name: string;
+  team?: string;
+  teamLogoUrl?: string;
+  goals: number;
+};
+type TopScorerJson = {
+  name: string;
+  team?: string;
+  teamLogoUrl?: string;
+  points: number;
+};
 
 export async function getTopGoalScorers(
   sportSlug: SportSlug,
@@ -51,10 +62,11 @@ export async function getTopGoalScorers(
         teamName: s.team ?? "",
         athleticsId: null,
         universityId: null,
-        logoUrl: null,
+        logoUrl: s.teamLogoUrl ?? null,
         total: 0,
         rank: 0,
       };
+      if (!cur.logoUrl && s.teamLogoUrl) cur.logoUrl = s.teamLogoUrl;
       cur.total += s.goals;
       agg.set(key, cur);
     }
@@ -101,10 +113,11 @@ export async function getTopPointScorers(
         teamName: s.team ?? "",
         athleticsId: null,
         universityId: null,
-        logoUrl: null,
+        logoUrl: s.teamLogoUrl ?? null,
         total: 0,
         rank: 0,
       };
+      if (!cur.logoUrl && s.teamLogoUrl) cur.logoUrl = s.teamLogoUrl;
       cur.total += s.points;
       agg.set(key, cur);
     }
@@ -122,12 +135,20 @@ async function enrichScorers(
   const db = requireDb();
   const teamNames = [...new Set(entries.map((e) => e.teamName).filter(Boolean))];
 
-  const athRows = teamNames.length
-    ? await db.select().from(athletics).where(inArray(athletics.name, teamNames))
-    : [];
+  const allAthletics = await db.select().from(athletics);
 
-  const athByName = new Map(athRows.map((a) => [a.name, a]));
-  const uniIds = [...new Set(athRows.map((a) => a.universityId))];
+  const athByName = new Map<string, (typeof allAthletics)[number]>();
+  for (const name of teamNames) {
+    const norm = normalizeTeamName(name);
+    const match =
+      allAthletics.find((a) => a.name === name) ??
+      allAthletics.find((a) => a.normalizedName === norm) ??
+      allAthletics.find(
+        (a) => a.nduAlias && normalizeTeamName(a.nduAlias) === norm
+      );
+    if (match) athByName.set(name, match);
+  }
+  const uniIds = [...new Set([...athByName.values()].map((a) => a.universityId))];
   const uniRows = uniIds.length
     ? await db.select().from(universities).where(inArray(universities.id, uniIds))
     : [];
@@ -141,7 +162,7 @@ async function enrichScorers(
         ...e,
         athleticsId: ath?.id ?? null,
         universityId: ath?.universityId ?? null,
-        logoUrl: ath?.logoUrl ?? uni?.logoUrl ?? null,
+        logoUrl: e.logoUrl ?? ath?.logoUrl ?? uni?.logoUrl ?? null,
       };
     })
     .sort((a, b) => b.total - a.total)

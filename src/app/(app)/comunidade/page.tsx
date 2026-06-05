@@ -33,7 +33,7 @@ export default async function ComunidadePage() {
           <PostCard key={post.id} post={post} comments={comments} />
         ))}
         {posts.length === 0 && (
-          <p className="text-center text-sm text-gray-500 py-12">
+          <p className="text-center text-sm text-zinc-400 py-12">
             Seja o primeiro a postar!
           </p>
         )}

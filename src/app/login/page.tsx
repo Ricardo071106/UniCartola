@@ -5,7 +5,7 @@ export default function LoginPage() {
   return (
     <AuthShell
       title="Entrar"
-      subtitle="Use o apelido que você criou no cadastro"
+      subtitle="Entre com o e-mail e a senha da sua conta"
     >
       <LoginForm />
     </AuthShell>

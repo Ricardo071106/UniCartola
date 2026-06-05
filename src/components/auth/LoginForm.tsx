@@ -4,10 +4,11 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { loginByNickname } from "@/actions/auth";
+import { loginByEmail } from "@/actions/auth";
 
 export function LoginForm() {
-  const [nickname, setNickname] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -15,7 +16,7 @@ export function LoginForm() {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const res = await loginByNickname({ nickname });
+      const res = await loginByEmail({ email, password });
       if (res?.error) setError(res.error);
     });
   }
@@ -24,14 +25,29 @@ export function LoginForm() {
     <form onSubmit={submit} className="space-y-4">
       <div>
         <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-400">
-          Apelido
+          E-mail
         </label>
         <Input
-          placeholder="Seu apelido no UniCartola"
-          value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
-          maxLength={50}
-          autoComplete="username"
+          type="email"
+          placeholder="seu@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          required
+        />
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-400">
+          Senha
+        </label>
+        <Input
+          type="password"
+          placeholder="Sua senha"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+          required
         />
       </div>
 

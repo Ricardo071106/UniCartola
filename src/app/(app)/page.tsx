@@ -33,7 +33,7 @@ export default async function HomePage({
   ]);
 
   return (
-    <Suspense fallback={<div className="py-12 text-center text-gray-500">Carregando...</div>}>
+    <Suspense fallback={<div className="py-12 text-center text-zinc-400">Carregando...</div>}>
       <HomeDashboard
         sport={sport}
         series={series}

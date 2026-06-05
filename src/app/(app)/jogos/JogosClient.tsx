@@ -58,8 +58,8 @@ export function JogosClient({
               className={cn(
                 "shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
                 active
-                  ? "bg-[#1e3a5f] text-white"
-                  : "bg-white border border-gray-200 text-gray-600"
+                  ? "bg-[#006b3f] text-white"
+                  : "border border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-white"
               )}
             >
               {s.label}
@@ -87,7 +87,7 @@ export function JogosClient({
               <MatchCard key={m.id} match={m} />
             ))}
             {initialMatches.length === 0 && (
-              <p className="py-12 text-center text-sm text-gray-500">
+              <p className="py-12 text-center text-sm text-zinc-400">
                 Nenhuma partida neste período
               </p>
             )}

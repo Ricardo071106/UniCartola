@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { registerUser } from "@/actions/auth";
 
 export function RegisterForm() {
-  const [nickname, setNickname] = useState("");
+  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -15,7 +17,7 @@ export function RegisterForm() {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const res = await registerUser({ nickname });
+      const res = await registerUser({ email, username, password });
       if (res?.error) setError(res.error);
     });
   }
@@ -24,18 +26,48 @@ export function RegisterForm() {
     <form onSubmit={submit} className="space-y-4">
       <div>
         <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-400">
-          Escolha seu apelido
+          E-mail
+        </label>
+        <Input
+          type="email"
+          placeholder="seu@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          required
+        />
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-400">
+          Nome de usuário
         </label>
         <Input
           placeholder="Ex: craque_sp_99"
-          value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           maxLength={50}
           autoComplete="username"
+          required
         />
         <p className="mt-2 text-xs text-zinc-500">
-          Aparece nos rankings e na comunidade. Não precisa escolher faculdade.
+          Aparece nos rankings e na comunidade.
         </p>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-400">
+          Senha
+        </label>
+        <Input
+          type="password"
+          placeholder="Mínimo 6 caracteres"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="new-password"
+          minLength={6}
+          required
+        />
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}

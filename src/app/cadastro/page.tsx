@@ -5,7 +5,7 @@ export default function CadastroPage() {
   return (
     <AuthShell
       title="Cadastre-se"
-      subtitle="Crie sua conta em segundos — só precisa de um apelido"
+      subtitle="Crie sua conta com e-mail, nome de usuário e senha"
     >
       <RegisterForm />
     </AuthShell>

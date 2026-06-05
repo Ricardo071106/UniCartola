@@ -61,7 +61,7 @@ async function resolveTeam(
     );
 
   if (exact) {
-    if (logoUrl && !exact.logoUrl) {
+    if (logoUrl && exact.logoUrl !== logoUrl) {
       await db
         .update(athletics)
         .set({ logoUrl })
@@ -131,6 +131,28 @@ async function resolveMatchTeams(row: ParsedMatchRow) {
   };
 }
 
+async function resolveTeamFromLogo(
+  logoUrl?: string
+): Promise<{ teamName: string; logoUrl?: string }> {
+  if (!logoUrl) return { teamName: "" };
+
+  const db = requireDb();
+  const allAthletics = await db.select().from(athletics);
+  const athleticId = logoUrl.match(/atleticas\/(\d+)/i)?.[1];
+
+  if (athleticId) {
+    const byId = allAthletics.find((a) =>
+      a.logoUrl?.includes(`/atleticas/${athleticId}/`)
+    );
+    if (byId) return { teamName: byId.name, logoUrl };
+  }
+
+  const exact = allAthletics.find((a) => a.logoUrl === logoUrl);
+  if (exact) return { teamName: exact.name, logoUrl };
+
+  return { teamName: "", logoUrl };
+}
+
 async function syncMatchScorers(
   matchId: string,
   nduMatchId: string,
@@ -145,11 +167,17 @@ async function syncMatchScorers(
   const { scorers } = parseNduResultPage(html);
   if (scorers.length === 0) return;
 
-  const payload = scorers.map((s) => ({
-    name: s.name,
-    team: "",
-    ...(isBasketball ? { points: s.total } : { goals: s.total }),
-  }));
+  const payload = await Promise.all(
+    scorers.map(async (s) => {
+      const team = await resolveTeamFromLogo(s.teamLogoUrl);
+      return {
+        name: s.name,
+        team: team.teamName,
+        teamLogoUrl: team.logoUrl ?? s.teamLogoUrl,
+        ...(isBasketball ? { points: s.total } : { goals: s.total }),
+      };
+    })
+  );
 
   const existing = await db
     .select()

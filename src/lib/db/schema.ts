@@ -97,6 +97,8 @@ export const users = pgTable(
   "users",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    email: varchar("email", { length: 255 }),
+    passwordHash: varchar("password_hash", { length: 255 }),
     nickname: varchar("nickname", { length: 50 }).notNull(),
     avatarUrl: text("avatar_url"),
     universityId: uuid("university_id").references(() => universities.id),
@@ -113,6 +115,7 @@ export const users = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => [
+    uniqueIndex("users_email_idx").on(t.email),
     index("users_university_idx").on(t.universityId),
     index("users_weekly_points_idx").on(t.weeklyPoints),
     index("users_total_points_idx").on(t.totalPoints),

@@ -25,7 +25,7 @@ export default async function PartidaPage({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+      <div className="cartola-card p-6">
         <div className="flex justify-center gap-2 mb-4">
           <Badge variant="secondary">{match.modality}</Badge>
           <Badge
@@ -49,18 +49,18 @@ export default async function PartidaPage({
           <TeamBlock uni={match.homeUniversity} score={match.homeScore} />
           <div className="text-center">
             {match.homeScore != null && match.awayScore != null ? (
-              <p className="text-3xl font-bold text-gray-900">
+              <p className="text-3xl font-bold text-white">
                 {match.homeScore} - {match.awayScore}
               </p>
             ) : (
-              <p className="text-2xl font-bold text-gray-400">VS</p>
+              <p className="text-2xl font-bold text-zinc-500">VS</p>
             )}
-            <p className="text-xs text-gray-500 mt-1">{match.sport.name}</p>
+            <p className="text-xs text-zinc-500 mt-1">{match.sport.name}</p>
           </div>
           <TeamBlock uni={match.awayUniversity} score={match.awayScore} />
         </div>
 
-        <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm text-gray-500">
+        <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm text-zinc-400">
           <span className="flex items-center gap-1">
             <Clock className="h-4 w-4" />
             {formatMatchDate(match.scheduledAt)} ·{" "}
@@ -76,9 +76,9 @@ export default async function PartidaPage({
       </div>
 
       {match.stats && match.status === "finished" && (
-        <div className="rounded-xl border border-gray-100 bg-white p-4">
-          <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-            <Target className="h-4 w-4 text-[#1e3a5f]" />
+        <div className="cartola-card p-4">
+          <h3 className="font-bold text-white mb-3 flex items-center gap-2">
+            <Target className="h-4 w-4 text-[#00a86b]" />
             Estatísticas
           </h3>
           <div className="grid grid-cols-2 gap-3 text-sm">
@@ -130,13 +130,13 @@ function TeamBlock({
 }) {
   return (
     <div className="flex flex-col items-center flex-1">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#1e3a5f]/10 text-2xl font-bold text-[#1e3a5f]">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#006b3f]/20 text-2xl font-bold text-[#00a86b]">
         {uni.shortName.slice(0, 3)}
       </div>
-      <p className="mt-2 font-bold text-gray-900">{uni.shortName}</p>
-      <p className="text-xs text-gray-500 text-center line-clamp-2">{uni.name}</p>
+      <p className="mt-2 font-bold text-white">{uni.shortName}</p>
+      <p className="text-xs text-zinc-500 text-center line-clamp-2">{uni.name}</p>
       {score != null && (
-        <p className="mt-1 text-lg font-bold text-emerald-600">{score}</p>
+        <p className="mt-1 text-lg font-bold text-[#00a86b]">{score}</p>
       )}
     </div>
   );
@@ -144,9 +144,9 @@ function TeamBlock({
 
 function StatRow({ label, value }: { label: string; value: string | number | null }) {
   return (
-    <div className="flex justify-between rounded-lg bg-gray-50 px-3 py-2">
-      <span className="text-gray-600">{label}</span>
-      <span className="font-semibold text-gray-900">{value ?? "—"}</span>
+    <div className="flex justify-between rounded-lg bg-zinc-900 px-3 py-2">
+      <span className="text-zinc-400">{label}</span>
+      <span className="font-semibold text-white">{value ?? "—"}</span>
     </div>
   );
 }

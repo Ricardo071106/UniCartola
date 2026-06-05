@@ -74,10 +74,10 @@ export function PredictionCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Target className="h-5 w-5 text-[#1e3a5f]" />
+          <Target className="h-5 w-5 text-[#00a86b]" />
           Seu palpite
         </CardTitle>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-zinc-400">
           Resultado +3 · Placar exato +5 · Ambos +8
         </p>
       </CardHeader>
@@ -92,8 +92,8 @@ export function PredictionCard({
               className={cn(
                 "flex flex-col items-center gap-1 rounded-lg border-2 p-3 text-xs font-semibold transition-colors",
                 result === opt.value
-                  ? "border-[#1e3a5f] bg-[#1e3a5f]/5 text-[#1e3a5f]"
-                  : "border-gray-100 text-gray-600 hover:border-gray-200",
+                  ? "border-[#006b3f] bg-[#006b3f]/20 text-[#00a86b]"
+                  : "border-zinc-700 text-zinc-400 hover:border-zinc-600",
                 disabled && "opacity-50 cursor-not-allowed"
               )}
             >
@@ -110,7 +110,7 @@ export function PredictionCard({
         </div>
 
         <div>
-          <p className="mb-2 text-xs font-medium text-gray-600">
+          <p className="mb-2 text-xs font-medium text-zinc-400">
             Placar exato (opcional)
           </p>
           <div className="flex items-center gap-2">
@@ -123,7 +123,7 @@ export function PredictionCard({
               disabled={disabled}
               className="text-center"
             />
-            <span className="text-gray-400 font-bold">×</span>
+            <span className="text-zinc-500 font-bold">×</span>
             <Input
               type="number"
               min={0}
@@ -136,9 +136,9 @@ export function PredictionCard({
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-400">{error}</p>}
         {success && (
-          <p className="text-sm text-emerald-600">Palpite registrado!</p>
+          <p className="text-sm text-emerald-400">Palpite registrado!</p>
         )}
 
         {!disabled && (
@@ -152,7 +152,7 @@ export function PredictionCard({
         )}
 
         {disabled && (
-          <p className="text-center text-sm text-gray-500">
+          <p className="text-center text-sm text-zinc-400">
             Palpites encerrados para esta partida
           </p>
         )}

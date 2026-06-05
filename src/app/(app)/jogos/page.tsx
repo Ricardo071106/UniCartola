@@ -24,8 +24,8 @@ export default async function JogosPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Jogos</h1>
-        <p className="text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-white">Jogos</h1>
+        <p className="text-sm text-zinc-400">
           Acompanhe partidas e faça seus palpites
         </p>
       </div>

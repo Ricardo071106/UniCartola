@@ -1,20 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { SPORT_ICONS } from "@/lib/constants/sports";
 import { StandingsTable } from "./StandingsTable";
 import { ScorersTable } from "./ScorersTable";
 import type { ScorerEntry, SportSlug, StandingsEntry } from "@/types";
-
-const SPORTS: {
-  slug: SportSlug;
-  label: string;
-  emoji: string;
-}[] = [
-  { slug: "futsal", label: "Futsal", emoji: "⚽" },
-  { slug: "futebol", label: "Futebol", emoji: "🥅" },
-  { slug: "basquete", label: "Basquete", emoji: "🏀" },
-];
 
 const SERIES = ["A", "B", "C", "D", "E", "F"] as const;
 
@@ -43,19 +35,20 @@ export function HomeDashboard({
   }
 
   const isBasketball = sport === "basquete";
-  const sportLabel = SPORTS.find((s) => s.slug === sport)?.label ?? sport;
+  const sportLabel = SPORT_ICONS[sport]?.label ?? sport;
 
   return (
     <div className="space-y-5">
       <section className="cartola-card overflow-hidden p-1">
         <div className="grid grid-cols-3 gap-1">
-          {SPORTS.map((s) => {
-            const active = sport === s.slug;
+          {(Object.keys(SPORT_ICONS) as SportSlug[]).map((slug) => {
+            const s = SPORT_ICONS[slug];
+            const active = sport === slug;
             return (
               <button
-                key={s.slug}
+                key={slug}
                 type="button"
-                onClick={() => updateParams("sport", s.slug)}
+                onClick={() => updateParams("sport", slug)}
                 className={cn(
                   "flex flex-col items-center gap-1.5 rounded-xl px-2 py-4 transition-all",
                   active
@@ -63,7 +56,14 @@ export function HomeDashboard({
                     : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
                 )}
               >
-                <span className="text-2xl">{s.emoji}</span>
+                <Image
+                  src={s.image}
+                  alt={s.label}
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 object-contain"
+                  unoptimized
+                />
                 <span className="text-xs font-black uppercase tracking-wide">
                   {s.label}
                 </span>

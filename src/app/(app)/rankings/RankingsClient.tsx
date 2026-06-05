@@ -60,7 +60,7 @@ export function RankingsClient({
             <RankingTable type="users" userEntries={userEntries} />
           )}
           {t.id === "weekly" && (
-            <p className="mt-3 text-xs text-gray-500 text-center">
+            <p className="mt-3 text-xs text-zinc-400 text-center">
               Ranking semanal — reinicia toda segunda-feira
             </p>
           )}

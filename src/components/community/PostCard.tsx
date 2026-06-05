@@ -58,29 +58,29 @@ export function PostCard({ post, comments = [] }: PostCardProps) {
           </Avatar>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-gray-900">
+              <span className="font-bold text-white">
                 {post.user.nickname}
               </span>
               {post.user.university && (
-                <span className="text-xs font-semibold text-[#1e3a5f]">
+                <span className="text-xs font-semibold text-[#00a86b]">
                   {post.user.university.shortName}
                 </span>
               )}
             </div>
-            <p className="text-[10px] text-gray-400">
+            <p className="text-[10px] text-zinc-500">
               {new Date(post.createdAt).toLocaleString("pt-BR")}
             </p>
           </div>
         </div>
 
-        <p className="mt-3 text-gray-800 leading-relaxed">{post.content}</p>
+        <p className="mt-3 text-zinc-300 leading-relaxed">{post.content}</p>
 
         <div className="mt-4 flex items-center gap-4">
           <button
             type="button"
             onClick={handleLike}
             disabled={pending}
-            className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-red-500 transition-colors"
+            className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-red-500 transition-colors"
           >
             <Heart
               className={`h-5 w-5 ${liked ? "fill-red-500 text-red-500" : ""}`}
@@ -90,7 +90,7 @@ export function PostCard({ post, comments = [] }: PostCardProps) {
           <button
             type="button"
             onClick={() => setShowComments(!showComments)}
-            className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-[#1e3a5f]"
+            className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-[#00a86b]"
           >
             <MessageCircle className="h-5 w-5" />
             {post.commentsCount + localComments.length - comments.length}
@@ -98,7 +98,7 @@ export function PostCard({ post, comments = [] }: PostCardProps) {
         </div>
 
         {showComments && (
-          <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
+          <div className="mt-4 space-y-3 border-t border-zinc-800 pt-4">
             {localComments.map((c) => (
               <CommentCard key={c.id} comment={c} />
             ))}

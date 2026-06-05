@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { LogIn, LogOut, User, UserPlus } from "lucide-react";
 import type { SessionPayload } from "@/lib/auth/session";
 
@@ -7,9 +8,13 @@ export function AppHeader({ session }: { session: SessionPayload | null }) {
     <header className="cartola-header sticky top-0 z-40 border-b border-zinc-800">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#006b3f] ring-1 ring-[#00a86b]/40">
-            <span className="text-lg font-black tracking-tighter text-white">UC</span>
-          </div>
+          <Image
+            src="/logo.svg"
+            alt="UniCartola"
+            width={40}
+            height={40}
+            className="h-10 w-10 rounded-xl ring-1 ring-[#00a86b]/40"
+          />
           <div>
             <p className="text-lg font-black leading-none tracking-tight text-white">
               UniCartola
