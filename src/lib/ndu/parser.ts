@@ -6,6 +6,7 @@ import {
   normalizeLogoUrl,
 } from "./normalize";
 import { normalizePlayoffPhase } from "./playoff-phases";
+import { parseNduMatchDateTime } from "./match-datetime";
 
 export { normalizeTeamName, modalityToSportSlug };
 
@@ -31,34 +32,11 @@ export type ParsedScorer = {
   total: number;
 };
 
-const MONTH_MAP: Record<string, number> = {
-  JAN: 0,
-  FEV: 1,
-  MAR: 2,
-  ABR: 3,
-  MAI: 4,
-  JUN: 5,
-  JUL: 6,
-  AGO: 7,
-  SET: 8,
-  OUT: 9,
-  NOV: 10,
-  DEZ: 11,
-};
-
 export function parseNduDateLabel(
   label: string,
   year = new Date().getFullYear()
 ): Date | null {
-  const cleaned = label.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  const m = cleaned.match(
-    /^(\d{1,2})\s*(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)$/i
-  );
-  if (!m) return null;
-  const day = parseInt(m[1], 10);
-  const month = MONTH_MAP[m[2].toUpperCase()];
-  if (month === undefined) return null;
-  return new Date(year, month, day, 12, 0, 0);
+  return parseNduMatchDateTime(label, year);
 }
 
 export function parseNduAthleticsMap(html: string): Map<string, string> {

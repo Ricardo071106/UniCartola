@@ -11,11 +11,8 @@ import {
 } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { ParsedMatchRow } from "./parser";
-import {
-  fetchAllNduJogosHtml,
-  fetchNduHtml,
-  NDU_JOGOS_URL,
-} from "./fetch";
+import { fetchAllNduJogosRows } from "./jogos-fetch";
+import { fetchNduHtml, NDU_JOGOS_URL } from "./fetch";
 
 export { NDU_JOGOS_URL };
 export const NDU_STATS_URL = "https://www.ndu.com.br/estatisticas";
@@ -32,27 +29,39 @@ async function resolveTeam(
   rawName: string,
   logoUrl?: string
 ): Promise<ResolvedTeam> {
-  const { normalizeTeamName } = await import("./parser");
+  const { normalizeTeamName, athleticIdFromLogoUrl } = await import("./parser");
   const db = requireDb();
   const normalized = normalizeTeamName(rawName);
 
   const allAthletics = await db.select().from(athletics);
+
+  const nduId = athleticIdFromLogoUrl(logoUrl);
+  if (nduId) {
+    const byNduId = allAthletics.find(
+      (a) => a.nduAthleticId === parseInt(nduId, 10)
+    );
+    if (byNduId) {
+      const bestLogo = byNduId.logoUrl ?? logoUrl;
+      if (bestLogo && byNduId.logoUrl !== bestLogo) {
+        await db
+          .update(athletics)
+          .set({ logoUrl: bestLogo })
+          .where(eq(athletics.id, byNduId.id));
+      }
+      return {
+        universityId: byNduId.universityId,
+        athleticsId: byNduId.id,
+        teamName: byNduId.name,
+      };
+    }
+  }
 
   const exact =
     allAthletics.find((a) => a.normalizedName === normalized) ??
     allAthletics.find(
       (a) => a.nduAlias && normalizeTeamName(a.nduAlias) === normalized
     ) ??
-    allAthletics.find(
-      (a) =>
-        a.nduAlias &&
-        normalized.includes(normalizeTeamName(a.nduAlias))
-    ) ??
-    allAthletics.find(
-      (a) =>
-        normalized.includes(normalizeTeamName(a.name)) ||
-        normalizeTeamName(a.name).includes(normalized)
-    );
+    allAthletics.find((a) => a.name === rawName);
 
   if (exact) {
     const bestLogo = exact.logoUrl ?? logoUrl;
@@ -201,7 +210,9 @@ async function findDuplicateMatch(
   sportId: string,
   row: ParsedMatchRow,
   homeTeamName: string,
-  awayTeamName: string
+  awayTeamName: string,
+  homeAthleticsId: string | null,
+  awayAthleticsId: string | null
 ) {
   const { normalizeTeamName } = await import("./parser");
   const db = requireDb();
@@ -221,12 +232,22 @@ async function findDuplicateMatch(
       if (m.homeScore !== row.homeScore || m.awayScore !== row.awayScore) {
         return false;
       }
+
+      if (
+        homeAthleticsId &&
+        awayAthleticsId &&
+        m.homeAthleticsId &&
+        m.awayAthleticsId
+      ) {
+        return (
+          m.homeAthleticsId === homeAthleticsId &&
+          m.awayAthleticsId === awayAthleticsId
+        );
+      }
+
       const mHome = normalizeTeamName(m.homeTeamName ?? "");
       const mAway = normalizeTeamName(m.awayTeamName ?? "");
-      return (
-        (mHome === homeNorm && mAway === awayNorm) ||
-        (mHome === awayNorm && mAway === homeNorm)
-      );
+      return mHome === homeNorm && mAway === awayNorm;
     }) ?? null
   );
 }
@@ -242,11 +263,10 @@ async function upsertMatchRow(
   const { parseNduDateLabel, buildExternalKey } = await import("./parser");
 
   const externalKey = buildExternalKey(row, sportSlug);
-  const { parseNduDateFromBoletim } = await import("./boletim-parser");
-  const boletimDate = row.dateLabel.match(/(\d{2}\/\d{2})/)?.[1];
+  const { parseNduMatchDateTime } = await import("./match-datetime");
   const scheduledAt =
+    parseNduMatchDateTime(row.dateLabel, year) ??
     parseNduDateLabel(row.dateLabel, year) ??
-    (boletimDate ? parseNduDateFromBoletim(boletimDate, year) : null) ??
     new Date();
   const status =
     row.isFinished && row.homeScore != null ? "finished" : "scheduled";
@@ -263,7 +283,9 @@ async function upsertMatchRow(
       sportId,
       row,
       teams.homeTeamName ?? row.homeTeamRaw ?? "",
-      teams.awayTeamName ?? row.awayTeamRaw ?? ""
+      teams.awayTeamName ?? row.awayTeamRaw ?? "",
+      teams.homeAthleticsId,
+      teams.awayAthleticsId
     );
     if (duplicate) existing = [duplicate];
   }
@@ -272,17 +294,24 @@ async function upsertMatchRow(
 
   if (existing[0]) {
     matchId = existing[0].id;
+    const preferJogos = Boolean(row.nduMatchId);
     const needsUpdate =
       existing[0].homeScore !== row.homeScore ||
       existing[0].awayScore !== row.awayScore ||
       existing[0].status !== status ||
       existing[0].externalKey !== externalKey ||
-      existing[0].groupName !== row.group;
+      existing[0].groupName !== row.group ||
+      existing[0].sportId !== sportId ||
+      existing[0].modality !== row.modality ||
+      (preferJogos &&
+        (existing[0].homeAthleticsId !== teams.homeAthleticsId ||
+          existing[0].awayAthleticsId !== teams.awayAthleticsId));
 
     if (needsUpdate) {
       await db
         .update(matches)
         .set({
+          sportId,
           homeScore: row.homeScore ?? null,
           awayScore: row.awayScore ?? null,
           status,
@@ -416,7 +445,6 @@ export async function runFullScrape(options: ScrapeOptions = {}) {
   let boletimTitle: string | null = null;
 
   try {
-    const { parseNduJogosPage } = await import("./parser");
     const { syncNduAthletics } = await import("./athletics-sync");
     const { parseBoletimMatches } = await import("./boletim-sync");
     const { syncNduStats } = await import("./stats-sync");
@@ -455,8 +483,7 @@ export async function runFullScrape(options: ScrapeOptions = {}) {
     }
 
     try {
-      const html = await fetchAllNduJogosHtml();
-      const jogosRows = parseNduJogosPage(html);
+      const jogosRows = await fetchAllNduJogosRows();
       allRows = [...allRows, ...jogosRows];
     } catch (e) {
       errors.push(`jogos: ${e instanceof Error ? e.message : String(e)}`);

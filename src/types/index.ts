@@ -21,6 +21,14 @@ export interface MatchWithTeams {
   homeScore: number | null;
   awayScore: number | null;
   isFeatured: boolean;
+  homeTeam: {
+    name: string;
+    logoUrl: string | null;
+  };
+  awayTeam: {
+    name: string;
+    logoUrl: string | null;
+  };
   homeUniversity: {
     id: string;
     name: string;

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runFullScrape } from "@/lib/ndu/sync";
 
 export const runtime = "nodejs";
 
@@ -12,6 +11,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const { runFullScrape } = await import("@/lib/ndu/sync");
     const result = await runFullScrape();
     return NextResponse.json(result);
   } catch (e) {

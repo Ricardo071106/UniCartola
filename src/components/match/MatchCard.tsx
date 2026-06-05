@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { MapPin, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,24 +12,35 @@ interface MatchCardProps {
 }
 
 function TeamBadge({
-  shortName,
   name,
+  logoUrl,
   showFullName,
 }: {
-  shortName: string;
   name: string;
+  logoUrl: string | null;
   showFullName: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center gap-1 min-w-[72px]">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-800 text-sm font-bold text-[#00a86b]">
-        {shortName.slice(0, 3)}
-      </div>
-      <span className="text-xs font-semibold text-white text-center line-clamp-1">
-        {shortName}
+    <div className="flex min-w-[80px] max-w-[110px] flex-col items-center gap-1">
+      {logoUrl ? (
+        <Image
+          src={logoUrl}
+          alt={name}
+          width={48}
+          height={48}
+          className="h-12 w-12 rounded-full object-cover ring-2 ring-zinc-700"
+          unoptimized
+        />
+      ) : (
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-800 text-sm font-bold text-[#00a86b] ring-2 ring-zinc-700">
+          {name.slice(0, 3).toUpperCase()}
+        </div>
+      )}
+      <span className="line-clamp-2 text-center text-xs font-semibold leading-tight text-white">
+        {name}
       </span>
       {showFullName && (
-        <span className="text-[10px] text-zinc-500 text-center line-clamp-1 max-w-[80px]">
+        <span className="line-clamp-1 max-w-[100px] text-center text-[10px] text-zinc-500">
           {name}
         </span>
       )}
@@ -62,26 +74,28 @@ export function MatchCard({ match, compact = false }: MatchCardProps) {
     <Link href={`/partida/${match.id}`}>
       <Card className="transition-shadow hover:shadow-md active:scale-[0.99]">
         <CardContent className="p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <Badge variant="secondary">{match.modality}</Badge>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <Badge variant="secondary" className="truncate max-w-[60%]">
+              {match.modality}
+            </Badge>
             <Badge variant={status.variant}>{status.label}</Badge>
           </div>
 
           <div className="flex items-center justify-between gap-2">
             <TeamBadge
-              shortName={match.homeUniversity.shortName}
-              name={match.homeUniversity.name}
+              name={match.homeTeam.name}
+              logoUrl={match.homeTeam.logoUrl}
               showFullName={!compact}
             />
-            <div className="flex flex-col items-center px-2">
+            <div className="flex shrink-0 flex-col items-center px-2">
               <span className="text-xl font-bold text-white">{score}</span>
-              <span className="text-[10px] text-zinc-500 uppercase tracking-wide">
+              <span className="text-[10px] uppercase tracking-wide text-zinc-500">
                 {match.sport.name}
               </span>
             </div>
             <TeamBadge
-              shortName={match.awayUniversity.shortName}
-              name={match.awayUniversity.name}
+              name={match.awayTeam.name}
+              logoUrl={match.awayTeam.logoUrl}
               showFullName={!compact}
             />
           </div>

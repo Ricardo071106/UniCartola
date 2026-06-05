@@ -5,9 +5,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const BR_TZ = "America/Sao_Paulo";
+
 export function formatMatchTime(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: BR_TZ,
+  });
 }
 
 export function formatMatchDate(date: Date | string): string {
@@ -16,6 +22,7 @@ export function formatMatchDate(date: Date | string): string {
     weekday: "short",
     day: "2-digit",
     month: "short",
+    timeZone: BR_TZ,
   });
 }
 

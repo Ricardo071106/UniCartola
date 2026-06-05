@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import type { ParsedMatchRow } from "./parser";
 import { modalityToSportSlug } from "./normalize";
+import { parseNduMatchDateTime } from "./match-datetime";
 
 export type BoletimEntry = {
   id: string;
@@ -309,10 +310,5 @@ export function parseNduDateFromBoletim(
   dateLabel: string,
   year: number
 ): Date | null {
-  const m = dateLabel.match(/^(\d{2})\/(\d{2})/);
-  if (!m) return null;
-  const day = parseInt(m[1], 10);
-  const month = parseInt(m[2], 10) - 1;
-  if (month < 0 || month > 11) return null;
-  return new Date(year, month, day, 12, 0, 0);
+  return parseNduMatchDateTime(dateLabel, year);
 }

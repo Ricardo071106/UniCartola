@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { MapPin, Clock, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -46,7 +47,7 @@ export default async function PartidaPage({
         </div>
 
         <div className="flex items-center justify-between gap-4">
-          <TeamBlock uni={match.homeUniversity} score={match.homeScore} />
+          <TeamBlock team={match.homeTeam} score={match.homeScore} />
           <div className="text-center">
             {match.homeScore != null && match.awayScore != null ? (
               <p className="text-3xl font-bold text-white">
@@ -57,7 +58,7 @@ export default async function PartidaPage({
             )}
             <p className="text-xs text-zinc-500 mt-1">{match.sport.name}</p>
           </div>
-          <TeamBlock uni={match.awayUniversity} score={match.awayScore} />
+          <TeamBlock team={match.awayTeam} score={match.awayScore} />
         </div>
 
         <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm text-zinc-400">
@@ -104,8 +105,8 @@ export default async function PartidaPage({
 
       <PredictionCard
         matchId={match.id}
-        homeShortName={match.homeUniversity.shortName}
-        awayShortName={match.awayUniversity.shortName}
+        homeShortName={match.homeTeam.name}
+        awayShortName={match.awayTeam.name}
         matchStatus={match.status}
         existingPrediction={
           prediction
@@ -122,19 +123,29 @@ export default async function PartidaPage({
 }
 
 function TeamBlock({
-  uni,
+  team,
   score,
 }: {
-  uni: { shortName: string; name: string };
+  team: { name: string; logoUrl: string | null };
   score: number | null;
 }) {
   return (
     <div className="flex flex-col items-center flex-1">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#006b3f]/20 text-2xl font-bold text-[#00a86b]">
-        {uni.shortName.slice(0, 3)}
-      </div>
-      <p className="mt-2 font-bold text-white">{uni.shortName}</p>
-      <p className="text-xs text-zinc-500 text-center line-clamp-2">{uni.name}</p>
+      {team.logoUrl ? (
+        <Image
+          src={team.logoUrl}
+          alt={team.name}
+          width={80}
+          height={80}
+          className="h-20 w-20 rounded-full object-cover ring-2 ring-[#006b3f]/40"
+          unoptimized
+        />
+      ) : (
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#006b3f]/20 text-2xl font-bold text-[#00a86b]">
+          {team.name.slice(0, 3)}
+        </div>
+      )}
+      <p className="mt-2 text-center font-bold text-white">{team.name}</p>
       {score != null && (
         <p className="mt-1 text-lg font-bold text-[#00a86b]">{score}</p>
       )}

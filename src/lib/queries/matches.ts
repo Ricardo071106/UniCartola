@@ -1,5 +1,11 @@
 import { requireDb } from "@/lib/db";
-import { matches, universities, sports, matchStats } from "@/lib/db/schema";
+import {
+  matches,
+  universities,
+  sports,
+  matchStats,
+  athletics,
+} from "@/lib/db/schema";
 import { eq, and, gte, lte, desc, asc, inArray } from "drizzle-orm";
 import type { MatchWithTeams, SportSlug } from "@/types";
 
@@ -13,23 +19,47 @@ async function enrichMatches(
   const uniIds = [
     ...new Set(raw.flatMap((m) => [m.homeUniversityId, m.awayUniversityId])),
   ];
+  const athIds = [
+    ...new Set(
+      raw
+        .flatMap((m) => [m.homeAthleticsId, m.awayAthleticsId])
+        .filter(Boolean)
+    ),
+  ] as string[];
   const matchIds = raw.map((m) => m.id);
 
-  const [sportRows, uniRows, statRows] = await Promise.all([
+  const [sportRows, uniRows, athRows, statRows] = await Promise.all([
     db.select().from(sports).where(inArray(sports.id, sportIds)),
     db.select().from(universities).where(inArray(universities.id, uniIds)),
+    athIds.length
+      ? db.select().from(athletics).where(inArray(athletics.id, athIds))
+      : Promise.resolve([]),
     db.select().from(matchStats).where(inArray(matchStats.matchId, matchIds)),
   ]);
 
   const sportMap = new Map(sportRows.map((s) => [s.id, s]));
   const uniMap = new Map(uniRows.map((u) => [u.id, u]));
+  const athMap = new Map(athRows.map((a) => [a.id, a]));
   const statMap = new Map(statRows.map((s) => [s.matchId, s]));
 
   return raw.map((m) => {
-    const home = uniMap.get(m.homeUniversityId)!;
-    const away = uniMap.get(m.awayUniversityId)!;
+    const homeUni = uniMap.get(m.homeUniversityId)!;
+    const awayUni = uniMap.get(m.awayUniversityId)!;
     const sport = sportMap.get(m.sportId)!;
     const stats = statMap.get(m.id);
+    const homeAth = m.homeAthleticsId
+      ? athMap.get(m.homeAthleticsId)
+      : null;
+    const awayAth = m.awayAthleticsId
+      ? athMap.get(m.awayAthleticsId)
+      : null;
+
+    const homeName =
+      m.homeTeamName ?? homeAth?.name ?? homeUni.shortName ?? homeUni.name;
+    const awayName =
+      m.awayTeamName ?? awayAth?.name ?? awayUni.shortName ?? awayUni.name;
+    const homeLogo = homeAth?.logoUrl ?? homeUni.logoUrl ?? null;
+    const awayLogo = awayAth?.logoUrl ?? awayUni.logoUrl ?? null;
 
     return {
       id: m.id,
@@ -40,17 +70,19 @@ async function enrichMatches(
       homeScore: m.homeScore,
       awayScore: m.awayScore,
       isFeatured: m.isFeatured,
+      homeTeam: { name: homeName, logoUrl: homeLogo },
+      awayTeam: { name: awayName, logoUrl: awayLogo },
       homeUniversity: {
-        id: home.id,
-        name: home.name,
-        shortName: home.shortName,
-        logoUrl: home.logoUrl,
+        id: homeUni.id,
+        name: homeUni.name,
+        shortName: homeUni.shortName,
+        logoUrl: homeUni.logoUrl,
       },
       awayUniversity: {
-        id: away.id,
-        name: away.name,
-        shortName: away.shortName,
-        logoUrl: away.logoUrl,
+        id: awayUni.id,
+        name: awayUni.name,
+        shortName: awayUni.shortName,
+        logoUrl: awayUni.logoUrl,
       },
       sport: { id: sport.id, name: sport.name, slug: sport.slug },
       stats: stats
