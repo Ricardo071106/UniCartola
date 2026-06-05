@@ -1,6 +1,5 @@
 import postgres from "postgres";
 
-/** Extrai user, senha, host do postgres URL (senha pode conter @) */
 function parsePostgresUrl(raw: string) {
   const cleaned = raw.replace(/^postgres(?:ql)?:\/\//i, "");
   const at = cleaned.lastIndexOf("@");
@@ -40,7 +39,22 @@ function buildUrl(parts: {
   return `postgresql://${user}:${pass}@${parts.host}:${parts.port}/${parts.database}?sslmode=require`;
 }
 
-/** Direct (db.xxx.supabase.co) → Session pooler (IPv4, funciona no Render) */
+function isDirectSupabaseUrl(url: string): boolean {
+  return url.includes("db.") && url.includes(".supabase.co");
+}
+
+function getPoolerHost(): string | undefined {
+  const explicit = process.env.SUPABASE_POOLER_HOST?.trim();
+  if (explicit) return explicit;
+
+  const region = process.env.SUPABASE_REGION?.trim();
+  if (!region) return undefined;
+
+  // Projetos novos Supabase usam aws-1; antigos aws-0
+  const prefix = process.env.SUPABASE_POOLER_PREFIX?.trim() ?? "1";
+  return `aws-${prefix}-${region}.pooler.supabase.com`;
+}
+
 function convertDirectToPooler(url: string, poolerHost: string): string {
   const parsed = parsePostgresUrl(url);
   if (!parsed) return url;
@@ -70,12 +84,24 @@ function getDatabaseUrl(): string | undefined {
   let url = process.env.DATABASE_URL?.trim();
   if (!url) return undefined;
 
-  const poolerHost = process.env.SUPABASE_POOLER_HOST?.trim();
-  const isDirect = url.includes("db.") && url.includes(".supabase.co");
+  if (isDirectSupabaseUrl(url)) {
+    const poolerHost = getPoolerHost();
+    if (poolerHost) {
+      url = convertDirectToPooler(url, poolerHost);
+    } else if (process.env.RENDER === "true") {
+      console.error(`
+[db] ERRO: Direct connection não funciona no Render (IPv6).
 
-  // Render não alcança IPv6 do Direct — converte automaticamente se pooler host definido
-  if (isDirect && poolerHost) {
-    url = convertDirectToPooler(url, poolerHost);
+Adicione no Render UMA destas opções:
+
+  A) SUPABASE_REGION=us-west-2
+     (mantém DATABASE_URL Direct — converte automaticamente)
+
+  B) SUPABASE_POOLER_HOST=aws-1-us-west-2.pooler.supabase.com
+
+  C) Troque DATABASE_URL pela URI do Session pooler (Supabase → Database → Session pooler)
+`);
+    }
   }
 
   if (url.includes("supabase") && !url.includes("sslmode=")) {
@@ -91,11 +117,15 @@ export function createPostgresClient(max = 10) {
     throw new Error("DATABASE_URL não configurada");
   }
 
-  const isPooler = url.includes("pooler.supabase.com");
+  if (isDirectSupabaseUrl(url) && process.env.RENDER === "true") {
+    throw new Error(
+      "DATABASE_URL Direct no Render sem SUPABASE_REGION ou SUPABASE_POOLER_HOST"
+    );
+  }
 
   return postgres(url, {
     max,
-    prepare: false, // obrigatório no pooler Supabase
+    prepare: false,
     ssl: url.includes("supabase") ? "require" : false,
     connect_timeout: 30,
   });
@@ -128,26 +158,15 @@ export function connectionHelp(error?: unknown): string {
       : "";
 
   if (msg.includes("28p01") || msg.includes("password authentication")) {
-    return `
-❌ Senha incorreta
-
-Supabase → Database → Reset database password
-Use a senha nova na DATABASE_URL (ou Session pooler URI).
-`.trim();
+    return `❌ Senha incorreta — reset em Supabase → Database → Reset password`;
   }
 
   if (msg.includes("enetunreach")) {
     return `
-❌ ENETUNREACH — Render não acessa Direct connection (IPv6)
+❌ ENETUNREACH — Render não acessa Direct (IPv6)
 
-SOLUÇÃO: no Render, adicione esta variável junto com DATABASE_URL:
-
-  SUPABASE_POOLER_HOST=aws-1-us-west-2.pooler.supabase.com
-
-Ou troque DATABASE_URL pela URI do Session pooler:
-  Supabase → Database → Connection string → Session pooler → URI
-
-postgresql://postgres.tbwvsbpabadfjsjofgph:SENHA@aws-1-us-west-2.pooler.supabase.com:5432/postgres
+No Render, adicione: SUPABASE_REGION=us-west-2
+(ou troque DATABASE_URL pelo Session pooler URI do Supabase)
 `.trim();
   }
 
