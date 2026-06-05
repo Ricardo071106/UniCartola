@@ -72,9 +72,12 @@ function matchQuality(m: PlayoffMatch): number {
   return score;
 }
 
-function matchMergeKey(match: PlayoffMatch, index: number): string {
-  if (match.id && !match.id.startsWith("boletim-")) return match.id;
-  return `${match.phase}:${index}:${normalizeTeamName(match.homeName)}:${normalizeTeamName(match.awayName)}:${match.homeScore ?? "s"}:${match.awayScore ?? "s"}`;
+function matchMergeKey(match: PlayoffMatch): string {
+  if (match.id && !match.id.startsWith("boletim-") && !match.id.startsWith("jogos-")) {
+    return match.id;
+  }
+  const phase = normalizePlayoffPhase(match.phase);
+  return `${phase}:${normalizeTeamName(match.homeName)}:${normalizeTeamName(match.awayName)}:${match.homeScore ?? "s"}:${match.awayScore ?? "s"}`;
 }
 
 function mergeBrackets(
@@ -84,8 +87,8 @@ function mergeBrackets(
   if (all.length === 0) return null;
 
   const best = new Map<string, PlayoffMatch>();
-  all.forEach((match, index) => {
-    const key = matchMergeKey(match, index);
+  all.forEach((match) => {
+    const key = matchMergeKey(match);
     const existing = best.get(key);
     if (!existing || matchQuality(match) > matchQuality(existing)) {
       best.set(key, match);

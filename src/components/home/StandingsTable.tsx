@@ -52,7 +52,7 @@ export function StandingsTable({ entries }: { entries: StandingsEntry[] }) {
             </span>
           </div>
 
-          <span className="text-center text-sm font-bold text-[#00a86b]">
+          <span className="accent-text text-center text-sm font-bold">
             {e.wins}
           </span>
           <span className="text-center text-sm text-zinc-400">{e.draws}</span>
@@ -67,7 +67,7 @@ export function StandingsTable({ entries }: { entries: StandingsEntry[] }) {
             {e.goalDifference > 0 ? "+" : ""}
             {e.goalDifference}
           </span>
-          <span className="text-center text-sm font-black text-[#00a86b]">
+          <span className="accent-text text-center text-sm font-black">
             {e.points}
           </span>
         </div>
@@ -90,7 +90,7 @@ function TeamLogo({ name, logoUrl }: { name: string; logoUrl: string | null }) {
     );
   }
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#006b3f] text-[10px] font-black text-white ring-2 ring-zinc-700">
+    <div className="accent-bg flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white ring-2 ring-zinc-700">
       {name.slice(0, 2).toUpperCase()}
     </div>
   );

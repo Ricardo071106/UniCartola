@@ -47,7 +47,7 @@ export function CurrencyToggle({
           className={cn(
             "rounded-full px-3 py-1.5 text-xs font-bold transition-colors",
             mode === "play"
-              ? "bg-[#006b3f] text-white"
+              ? "accent-bg text-white"
               : "text-zinc-400 hover:text-white"
           )}
         >

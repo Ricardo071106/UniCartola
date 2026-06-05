@@ -52,7 +52,7 @@ export function RankingTable({
                     {entry.name}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right font-bold text-[#00a86b]">
+                <td className="accent-text px-4 py-3 text-right font-bold">
                   {entry.totalPoints.toLocaleString("pt-BR")}
                 </td>
               </tr>

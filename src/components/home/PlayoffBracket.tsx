@@ -22,7 +22,7 @@ function TeamBadge({
     <div
       className={cn(
         "flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5",
-        isWinner ? "bg-[#006b3f]/30" : "bg-zinc-800/50"
+        isWinner ? "accent-bg-muted" : "bg-zinc-800/50"
       )}
     >
       {logoUrl ? (
@@ -51,7 +51,7 @@ function TeamBadge({
         <span
           className={cn(
             "text-sm font-black tabular-nums",
-            isWinner ? "text-[#00a86b]" : "text-zinc-500"
+            isWinner ? "accent-text" : "text-zinc-500"
           )}
         >
           {score}
@@ -130,7 +130,14 @@ export function PlayoffBracket({
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data: PlayoffBracketData | null) => {
-        if (data?.rounds?.length) setBracket(data);
+        if (!data?.rounds?.length) return;
+        setBracket((prev) => {
+          if (!prev?.rounds?.length) return data;
+          if (data.rounds.length >= prev.rounds.length) return data;
+          const prevPhases = new Set(prev.rounds.map((r) => r.phase));
+          const hasNewPhase = data.rounds.some((r) => !prevPhases.has(r.phase));
+          return hasNewPhase ? data : prev;
+        });
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -162,7 +169,7 @@ export function PlayoffBracket({
     <div className="space-y-6 p-4">
       {bracket.rounds.map((round) => (
         <div key={round.phase}>
-          <h3 className="mb-3 text-xs font-black uppercase tracking-wider text-[#00a86b]">
+          <h3 className="accent-text mb-3 text-xs font-black uppercase tracking-wider">
             {PHASE_LABELS[round.phase] ?? round.phase}
           </h3>
           <div

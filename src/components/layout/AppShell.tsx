@@ -33,7 +33,7 @@ export function AppShell({
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-black" data-currency={currencyMode}>
       <AppHeader
         session={session}
         currencyMode={currencyMode}
@@ -54,7 +54,7 @@ export function AppShell({
                 className={cn(
                   "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-colors",
                   active
-                    ? "bg-[#006b3f] text-white"
+                    ? "accent-nav-active"
                     : "text-zinc-500 hover:bg-zinc-900 hover:text-white"
                 )}
               >
@@ -82,7 +82,7 @@ export function AppShell({
                 href={item.href}
                 className={cn(
                   "flex flex-col items-center gap-0.5 rounded-lg px-3 py-1 text-[10px] font-bold",
-                  active ? "text-[#00a86b]" : "text-zinc-600"
+                  active ? "accent-nav-mobile-active" : "text-zinc-600"
                 )}
               >
                 <item.icon

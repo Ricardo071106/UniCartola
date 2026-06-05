@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+:root,
+[data-currency="play"] {
   --background: #000000;
   --foreground: #f4f4f5;
   --card: #111111;
@@ -10,9 +11,21 @@
   --muted: #181818;
   --muted-foreground: #a1a1aa;
   --border: #27272a;
-  --cartola-green: #006b3f;
-  --cartola-green-light: #00a86b;
-  --primary: var(--cartola-green-light);
+  --cartola-accent: #006b3f;
+  --cartola-accent-light: #00a86b;
+  --cartola-accent-muted: rgb(0 107 63 / 0.3);
+  --cartola-header-mid: #0a1f14;
+  --cartola-header-end: #006b3f;
+  --primary: var(--cartola-accent-light);
+}
+
+[data-currency="real"] {
+  --cartola-accent: #d97706;
+  --cartola-accent-light: #f59e0b;
+  --cartola-accent-muted: rgb(217 119 6 / 0.3);
+  --cartola-header-mid: #1f1408;
+  --cartola-header-end: #d97706;
+  --primary: var(--cartola-accent-light);
 }
 
 body {
@@ -28,7 +41,12 @@ body {
 
 @layer components {
   .cartola-header {
-    background: linear-gradient(135deg, #000000 0%, #0a1f14 50%, #006b3f 100%);
+    background: linear-gradient(
+      135deg,
+      #000000 0%,
+      var(--cartola-header-mid) 50%,
+      var(--cartola-header-end) 100%
+    );
   }
 
   .cartola-card {
@@ -40,10 +58,40 @@ body {
   }
 
   .cartola-pill-active {
-    @apply bg-[#006b3f] text-white shadow-md;
+    background-color: var(--cartola-accent);
+    @apply text-white shadow-md;
   }
 
   .cartola-pill-inactive {
     @apply bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white;
+  }
+
+  .accent-bg {
+    background-color: var(--cartola-accent);
+  }
+
+  .accent-bg-light {
+    background-color: var(--cartola-accent-light);
+  }
+
+  .accent-bg-muted {
+    background-color: var(--cartola-accent-muted);
+  }
+
+  .accent-text {
+    color: var(--cartola-accent-light);
+  }
+
+  .accent-text-hover:hover {
+    color: var(--cartola-accent-light);
+  }
+
+  .accent-nav-active {
+    background-color: var(--cartola-accent);
+    @apply text-white;
+  }
+
+  .accent-nav-mobile-active {
+    color: var(--cartola-accent-light);
   }
 }

@@ -235,18 +235,16 @@ function mergePlayoffLines(chunk: string): string[] {
 function extractPlayoffChunk(
   text: string,
   modality: string,
-  series: string,
-  fromIndex: number
+  series: string
 ): string | null {
   const headerRe = new RegExp(
     `Playoffs\\s+[–-]\\s+${modality.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\(Série\\s+${series}\\)`,
     "i"
   );
-  const slice = text.slice(fromIndex);
-  const header = slice.match(headerRe);
+  const header = text.match(headerRe);
   if (!header || header.index === undefined) return null;
 
-  const chunkStart = fromIndex + header.index + header[0].length;
+  const chunkStart = header.index + header[0].length;
   const rest = text.slice(chunkStart);
   const sportEnd = rest.search(PLAYOFF_END_RE);
   return sportEnd === -1 ? rest : rest.slice(0, sportEnd);
@@ -272,35 +270,31 @@ export function parseBoletimPdfText(text: string): ParsedMatchRow[] {
     let m: RegExpExecArray | null;
 
     while ((m = re.exec(text)) !== null) {
-      if (m.index === undefined || isGroupStageSectionMatch(text, m.index)) {
-        continue;
-      }
+      if (m.index === undefined) continue;
 
       const series = m[1].toUpperCase();
-      const start = m.index + m[0].length;
+      const inPlayoffsOnlySection = isGroupStageSectionMatch(text, m.index);
 
-      const groupEnd = text
-        .slice(start)
-        .search(/Classificação\s+–|Playoffs\s+–/i);
-      const groupChunk =
-        groupEnd === -1 ? text.slice(start) : text.slice(start, start + groupEnd);
+      if (!inPlayoffsOnlySection) {
+        const start = m.index + m[0].length;
+        const groupEnd = text
+          .slice(start)
+          .search(/Classificação\s+–|Playoffs\s+–/i);
+        const groupChunk =
+          groupEnd === -1 ? text.slice(start) : text.slice(start, start + groupEnd);
 
-      for (const line of groupChunk.split("\n")) {
-        const parsed = parseGroupMatchLine(line);
-        if (!parsed) continue;
-        pushRow(rows, seen, {
-          ...parsed,
-          modality: sport.modality,
-          series,
-        });
+        for (const line of groupChunk.split("\n")) {
+          const parsed = parseGroupMatchLine(line);
+          if (!parsed) continue;
+          pushRow(rows, seen, {
+            ...parsed,
+            modality: sport.modality,
+            series,
+          });
+        }
       }
 
-      const playoffChunk = extractPlayoffChunk(
-        text,
-        sport.modality,
-        series,
-        m.index
-      );
+      const playoffChunk = extractPlayoffChunk(text, sport.modality, series);
       if (playoffChunk) {
         for (const record of mergePlayoffLines(playoffChunk)) {
           const parsed = parsePlayoffRecord(record);

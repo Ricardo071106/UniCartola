@@ -111,7 +111,7 @@ export function PalpitesClient({
             className={cn(
               "shrink-0 rounded-full px-4 py-2 text-sm font-semibold",
               sport === s.slug
-                ? "bg-[#006b3f] text-white"
+                ? "accent-bg text-white"
                 : "border border-zinc-700 bg-zinc-900 text-zinc-400"
             )}
           >

@@ -79,7 +79,7 @@ export function AppHeader({
               </Link>
               <Link
                 href="/cadastro"
-                className="flex items-center gap-1.5 rounded-full bg-[#006b3f] px-4 py-2 text-sm font-bold text-white hover:bg-[#00a86b]"
+                className="accent-bg flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-white hover:opacity-90"
               >
                 <UserPlus className="h-4 w-4" />
                 Cadastre-se

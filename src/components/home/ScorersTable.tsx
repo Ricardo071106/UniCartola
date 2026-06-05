@@ -34,7 +34,7 @@ export function ScorersTable({
             </p>
             <p className="truncate text-xs text-zinc-500">{e.teamName}</p>
           </div>
-          <span className="shrink-0 text-sm font-black text-[#00a86b]">
+          <span className="accent-text shrink-0 text-sm font-black">
             {e.total} {unit}
           </span>
         </li>

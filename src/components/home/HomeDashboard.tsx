@@ -64,7 +64,7 @@ export function HomeDashboard({
                 className={cn(
                   "flex flex-col items-center gap-1.5 rounded-xl px-2 py-4 transition-all",
                   active
-                    ? "bg-[#006b3f] text-white"
+                    ? "accent-bg text-white"
                     : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
                 )}
               >

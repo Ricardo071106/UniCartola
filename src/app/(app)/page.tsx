@@ -5,7 +5,7 @@ import {
   parseSport,
 } from "@/lib/queries/standings";
 import { getTopGoalScorers, getTopPointScorers } from "@/lib/queries/scorers";
-import { getPlayoffBracket } from "@/lib/queries/playoffs";
+import { getPlayoffBracketWithBoletim } from "@/lib/queries/playoffs";
 import { safeQuery } from "@/lib/db/safe-query";
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ export default async function HomePage({
   const [standings, playoffBracket, goalScorers, pointScorers] =
     await Promise.all([
       safeQuery(() => getStandingsBySeries(sport, series), []),
-      safeQuery(() => getPlayoffBracket(sport, series), null),
+      safeQuery(() => getPlayoffBracketWithBoletim(sport, series), null),
       safeQuery(() => getTopGoalScorers(sport, series, 10), []),
       safeQuery(() => getTopPointScorers(sport, series, 10), []),
     ]);
