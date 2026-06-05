@@ -72,24 +72,25 @@ function matchQuality(m: PlayoffMatch): number {
   return score;
 }
 
+function matchMergeKey(match: PlayoffMatch, index: number): string {
+  if (match.id && !match.id.startsWith("boletim-")) return match.id;
+  return `${match.phase}:${index}:${normalizeTeamName(match.homeName)}:${normalizeTeamName(match.awayName)}:${match.homeScore ?? "s"}:${match.awayScore ?? "s"}`;
+}
+
 function mergeBrackets(
-  primary: PlayoffBracket | null,
-  secondary: PlayoffBracket | null
+  ...sources: (PlayoffBracket | null)[]
 ): PlayoffBracket | null {
-  const all = [
-    ...(primary?.rounds.flatMap((r) => r.matches) ?? []),
-    ...(secondary?.rounds.flatMap((r) => r.matches) ?? []),
-  ];
+  const all = sources.flatMap((s) => s?.rounds.flatMap((r) => r.matches) ?? []);
   if (all.length === 0) return null;
 
   const best = new Map<string, PlayoffMatch>();
-  for (const match of all) {
-    const key = `${match.phase}:${normalizeTeamName(match.homeName)}:${normalizeTeamName(match.awayName)}`;
+  all.forEach((match, index) => {
+    const key = matchMergeKey(match, index);
     const existing = best.get(key);
     if (!existing || matchQuality(match) > matchQuality(existing)) {
       best.set(key, match);
     }
-  }
+  });
 
   return buildBracketFromMatches([...best.values()]);
 }
@@ -185,11 +186,17 @@ async function loadBoletimPlayoffRows(
   );
 }
 
-const getBoletimPlayoffRows = unstable_cache(
-  loadBoletimPlayoffRows,
-  ["boletim-playoff-rows"],
-  { revalidate: 1800 }
-);
+async function getBoletimPlayoffRows(
+  sportSlug: SportSlug,
+  series: SeriesLetter,
+  year: number
+) {
+  return unstable_cache(
+    () => loadBoletimPlayoffRows(sportSlug, series, year),
+    ["boletim-playoff-rows", sportSlug, series, String(year)],
+    { revalidate: 1800 }
+  )();
+}
 
 async function getSeasonYear(): Promise<number> {
   const db = requireDb();
@@ -305,6 +312,79 @@ async function getPlayoffBracketFromDb(
   return buildBracketFromMatches(playoffMatches);
 }
 
+async function resolveTeamFromRow(
+  raw: string | undefined,
+  logoUrl: string | undefined,
+  athleticsRows: (typeof athletics.$inferSelect)[]
+) {
+  if (raw?.trim()) {
+    return resolveTeamPresentation(raw.trim(), athleticsRows);
+  }
+  if (logoUrl) {
+    const nduId = logoUrl.match(/atleticas\/(\d+)/i)?.[1];
+    const ath = athleticsRows.find((a) =>
+      nduId
+        ? a.logoUrl?.includes(`/atleticas/${nduId}/`)
+        : a.logoUrl === logoUrl
+    );
+    if (ath) return { name: ath.name, logoUrl: ath.logoUrl ?? logoUrl };
+    return { name: "A definir", logoUrl };
+  }
+  return { name: "A definir", logoUrl: null };
+}
+
+async function getPlayoffBracketFromNduJogos(
+  sportSlug: SportSlug,
+  series: SeriesLetter
+): Promise<PlayoffBracket | null> {
+  const { fetchAllNduJogosRows } = await import("@/lib/ndu/jogos-fetch");
+  const { parseNduMatchDateTime } = await import("@/lib/ndu/match-datetime");
+
+  const rows = (await fetchAllNduJogosRows()).filter(
+    (row) =>
+      modalityToSportSlug(row.modality) === sportSlug &&
+      row.series === series &&
+      isPlayoffPhase(row.group)
+  );
+
+  if (rows.length === 0) return null;
+
+  const db = requireDb();
+  const athleticsRows = await db.select().from(athletics);
+  const year = await getSeasonYear();
+
+  const playoffMatches: PlayoffMatch[] = await Promise.all(
+    rows.map(async (row, index) => {
+      const [home, away] = await Promise.all([
+        resolveTeamFromRow(row.homeTeamRaw, row.homeLogoUrl, athleticsRows),
+        resolveTeamFromRow(row.awayTeamRaw, row.awayLogoUrl, athleticsRows),
+      ]);
+
+      const phase = normalizePlayoffPhase(row.group);
+      const homeScore = row.homeScore ?? null;
+      const awayScore = row.awayScore ?? null;
+      const scheduledAt =
+        parseNduMatchDateTime(row.dateLabel, year) ?? new Date(year, 0, 1);
+
+      return {
+        id: row.nduMatchId ? `ndu:${row.nduMatchId}` : `jogos-${series}-${phase}-${index}`,
+        phase,
+        scheduledAt,
+        homeName: displayTeamName(home.name, home.name, null),
+        awayName: displayTeamName(away.name, away.name, null),
+        homeLogoUrl: home.logoUrl,
+        awayLogoUrl: away.logoUrl,
+        homeScore,
+        awayScore,
+        status: row.isFinished ? ("finished" as const) : ("scheduled" as const),
+        winnerSide: winnerSide(homeScore, awayScore),
+      };
+    })
+  );
+
+  return buildBracketFromMatches(playoffMatches);
+}
+
 /** Rápido — banco. A home complementa via API quando faltar dados. */
 export async function getPlayoffBracket(
   sportSlug: SportSlug,
@@ -323,11 +403,10 @@ export async function getPlayoffBracketWithBoletim(
 
   const fromDb = await getPlayoffBracketFromDb(sportSlug, series);
 
-  const fromBoletim = await withTimeout(
-    getPlayoffBracketFromBoletim(sportSlug, series),
-    timeoutMs,
-    null
-  );
+  const [fromNdu, fromBoletim] = await Promise.all([
+    withTimeout(getPlayoffBracketFromNduJogos(sportSlug, series), 6000, null),
+    withTimeout(getPlayoffBracketFromBoletim(sportSlug, series), timeoutMs, null),
+  ]);
 
-  return mergeBrackets(fromDb, fromBoletim);
+  return mergeBrackets(fromDb, fromNdu, fromBoletim);
 }

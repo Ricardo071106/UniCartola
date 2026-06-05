@@ -6,6 +6,7 @@ import { PredictionCard } from "@/components/prediction/PredictionCard";
 import { getMatchById } from "@/lib/queries/matches";
 import { getUserPredictionForMatch } from "@/lib/queries/predictions";
 import { getSession } from "@/lib/auth/session";
+import { getCurrencyMode } from "@/lib/currency/server";
 import { formatMatchDate, formatMatchTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +21,9 @@ export default async function PartidaPage({
   if (!match) notFound();
 
   const session = await getSession();
+  const currencyMode = await getCurrencyMode();
   const prediction = session
-    ? await getUserPredictionForMatch(session.userId, id)
+    ? await getUserPredictionForMatch(session.userId, id, currencyMode)
     : null;
 
   return (

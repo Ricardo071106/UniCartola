@@ -3,6 +3,7 @@ import { users, universities } from "@/lib/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import type { LeaderboardEntry, UniversityRankingEntry, RankingTab } from "@/types";
 import { realUsersOnly } from "./user-filters";
+import type { CurrencyMode } from "@/lib/currency/mode";
 
 export async function getWeeklyLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
   const db = requireDb();
@@ -37,6 +38,7 @@ export async function getGeneralLeaderboard(
     courseId?: string;
     athleticsId?: string;
     weekly?: boolean;
+    currencyMode?: CurrencyMode;
   }
 ): Promise<LeaderboardEntry[]> {
   const db = requireDb();
@@ -52,7 +54,12 @@ export async function getGeneralLeaderboard(
     conditions.push(eq(users.athleticsId, filters.athleticsId));
   }
 
-  const orderCol = filters?.weekly ? users.weeklyPoints : users.totalPoints;
+  const orderCol =
+    filters?.currencyMode === "real"
+      ? users.realPoints
+      : filters?.weekly
+        ? users.weeklyPoints
+        : users.totalPoints;
 
   const rows = await db
     .select({

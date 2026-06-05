@@ -26,6 +26,14 @@ export const predictionResultEnum = pgEnum("prediction_result", [
   "away",
 ]);
 
+export const currencyModeEnum = pgEnum("currency_mode", ["play", "real"]);
+
+export const marketPredictionTypeEnum = pgEnum("market_prediction_type", [
+  "champion",
+  "top_scorer",
+  "top_cards",
+]);
+
 export const rankingTypeEnum = pgEnum("ranking_type", [
   "general",
   "weekly",
@@ -139,6 +147,10 @@ export const users = pgTable(
     totalPredictions: integer("total_predictions").default(0).notNull(),
     currentStreak: integer("current_streak").default(0).notNull(),
     bestStreak: integer("best_streak").default(0).notNull(),
+    currencyMode: currencyModeEnum("currency_mode").default("play").notNull(),
+    playBalance: integer("play_balance").default(10000).notNull(),
+    realBalance: integer("real_balance").default(0).notNull(),
+    realPoints: integer("real_points").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -286,11 +298,48 @@ export const predictions = pgTable(
     awayScore: integer("away_score"),
     pointsEarned: integer("points_earned"),
     isScored: boolean("is_scored").default(false).notNull(),
+    currencyMode: currencyModeEnum("currency_mode").default("play").notNull(),
+    stakeAmount: integer("stake_amount").default(100).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [
-    uniqueIndex("predictions_user_match_idx").on(t.userId, t.matchId),
+    uniqueIndex("predictions_user_match_currency_idx").on(
+      t.userId,
+      t.matchId,
+      t.currencyMode
+    ),
     index("predictions_user_idx").on(t.userId),
+  ]
+);
+
+export const marketPredictions = pgTable(
+  "market_predictions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .references(() => users.id)
+      .notNull(),
+    sportId: uuid("sport_id")
+      .references(() => sports.id)
+      .notNull(),
+    series: varchar("series", { length: 8 }).notNull(),
+    currencyMode: currencyModeEnum("currency_mode").default("play").notNull(),
+    marketType: marketPredictionTypeEnum("market_type").notNull(),
+    athleticsId: uuid("athletics_id").references(() => athletics.id),
+    playerName: varchar("player_name", { length: 200 }),
+    stakeAmount: integer("stake_amount").default(100).notNull(),
+    pointsEarned: integer("points_earned"),
+    isScored: boolean("is_scored").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("market_predictions_user_unique_idx").on(
+      t.userId,
+      t.sportId,
+      t.series,
+      t.marketType,
+      t.currencyMode
+    ),
   ]
 );
 

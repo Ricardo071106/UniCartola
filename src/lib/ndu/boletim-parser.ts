@@ -116,6 +116,16 @@ function stripPlayoffNoise(text: string, stripPhase = false): string {
   return out;
 }
 
+function playoffTeamLabel(raw: string, stripped: string): string {
+  const cleaned = stripped.trim();
+  if (cleaned) return cleaned;
+  const placeholder = raw.match(
+    /Vencedor\s+(?:das?\s+)?(?:4ªs|8ªs|Semifinal|Final).*?(?:\(\d+\))?/i
+  );
+  if (placeholder) return placeholder[0].trim();
+  return "A definir";
+}
+
 function parsePlayoffRecord(
   raw: string
 ): Omit<ParsedMatchRow, "modality" | "series"> | null {
@@ -158,10 +168,15 @@ function parsePlayoffRecord(
     .replace(/^[\wÀ-ú\s-]+?\s+(8ªs|4ªs|Semi|Final)\s*/i, "")
     .trim();
 
-  const homeTeamRaw = stripPlayoffNoise(homePart, true);
-  const awayTeamRaw = stripPlayoffNoise(afterScore.trim(), true);
+  const homeTeamRaw = playoffTeamLabel(
+    homePart,
+    stripPlayoffNoise(homePart, true)
+  );
+  const awayTeamRaw = playoffTeamLabel(
+    afterScore.trim(),
+    stripPlayoffNoise(afterScore.trim(), true)
+  );
 
-  if (!homeTeamRaw || !awayTeamRaw) return null;
   if (/^X$/i.test(homeTeamRaw) || /^X$/i.test(awayTeamRaw)) return null;
 
   const venueMatch = beforeScore.match(

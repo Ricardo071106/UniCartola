@@ -69,6 +69,7 @@ async function enrichMatches(
 
     return {
       id: m.id,
+      series: m.series,
       modality: m.modality,
       scheduledAt: m.scheduledAt,
       venue: m.venue,

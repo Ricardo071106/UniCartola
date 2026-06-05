@@ -14,6 +14,7 @@ export type RankingTab =
 
 export interface MatchWithTeams {
   id: string;
+  series: string | null;
   modality: string;
   scheduledAt: Date;
   venue: string | null;

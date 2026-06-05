@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Calendar, Trophy, Users, User } from "lucide-react";
+import { Home, Calendar, Target, Trophy, Users, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppHeader } from "./AppHeader";
 import type { SessionPayload } from "@/lib/auth/session";
+import type { CurrencyMode } from "@/lib/currency/mode";
 
 const navItems = [
   { href: "/", label: "Início", icon: Home },
   { href: "/jogos", label: "Jogos", icon: Calendar },
+  { href: "/palpites", label: "Palpites", icon: Target },
   { href: "/rankings", label: "Ranking", icon: Trophy },
   { href: "/comunidade", label: "Fórum", icon: Users },
   { href: "/perfil", label: "Perfil", icon: User },
@@ -18,15 +20,26 @@ const navItems = [
 export function AppShell({
   children,
   session,
+  currencyMode = "play",
+  playBalance,
+  realBalance,
 }: {
   children: React.ReactNode;
   session: SessionPayload | null;
+  currencyMode?: CurrencyMode;
+  playBalance?: number;
+  realBalance?: number;
 }) {
   const pathname = usePathname();
 
   return (
     <div className="min-h-screen bg-black">
-      <AppHeader session={session} />
+      <AppHeader
+        session={session}
+        currencyMode={currencyMode}
+        playBalance={playBalance}
+        realBalance={realBalance}
+      />
 
       <nav className="hidden border-b border-zinc-800 bg-zinc-950 md:block">
         <div className="mx-auto flex max-w-5xl gap-1 px-4 py-2">

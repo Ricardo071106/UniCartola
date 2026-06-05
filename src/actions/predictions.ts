@@ -2,10 +2,40 @@
 
 import { revalidatePath } from "next/cache";
 import { requireDb } from "@/lib/db";
-import { predictions, matches } from "@/lib/db/schema";
+import { predictions, matches, users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+import { getCurrencyMode } from "@/lib/currency/server";
+import { DEFAULT_STAKE } from "@/lib/currency/mode";
 import { and, eq, sql } from "drizzle-orm";
 import type { PredictionResult } from "@/types";
+
+async function chargeStake(userId: string, mode: "play" | "real") {
+  const db = requireDb();
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!user) throw new Error("Usuário não encontrado");
+
+  const balance = mode === "play" ? user.playBalance : user.realBalance;
+  if (balance < DEFAULT_STAKE) {
+    throw new Error(
+      mode === "play"
+        ? "Saldo de fichas insuficiente"
+        : "Saldo real insuficiente"
+    );
+  }
+
+  await db
+    .update(users)
+    .set(
+      mode === "play"
+        ? { playBalance: user.playBalance - DEFAULT_STAKE }
+        : { realBalance: user.realBalance - DEFAULT_STAKE }
+    )
+    .where(eq(users.id, userId));
+}
 
 export async function submitPrediction(data: {
   matchId: string;
@@ -16,6 +46,7 @@ export async function submitPrediction(data: {
   try {
     const session = await requireSession();
     const db = requireDb();
+    const currencyMode = await getCurrencyMode();
 
     const [match] = await db
       .select()
@@ -37,7 +68,8 @@ export async function submitPrediction(data: {
       .where(
         and(
           eq(predictions.userId, session.userId),
-          eq(predictions.matchId, data.matchId)
+          eq(predictions.matchId, data.matchId),
+          eq(predictions.currencyMode, currencyMode)
         )
       )
       .limit(1);
@@ -52,15 +84,17 @@ export async function submitPrediction(data: {
         })
         .where(eq(predictions.id, existing[0].id));
     } else {
+      await chargeStake(session.userId, currencyMode);
       await db.insert(predictions).values({
         userId: session.userId,
         matchId: data.matchId,
         result: data.result,
         homeScore: hasScore ? data.homeScore : null,
         awayScore: hasScore ? data.awayScore : null,
+        currencyMode,
+        stakeAmount: DEFAULT_STAKE,
       });
 
-      const { users } = await import("@/lib/db/schema");
       await db
         .update(users)
         .set({
@@ -70,6 +104,7 @@ export async function submitPrediction(data: {
     }
 
     revalidatePath(`/partida/${data.matchId}`);
+    revalidatePath("/palpites");
     revalidatePath("/perfil");
     return { success: true };
   } catch (e) {

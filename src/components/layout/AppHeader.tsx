@@ -2,8 +2,20 @@ import Link from "next/link";
 import Image from "next/image";
 import { LogIn, LogOut, User, UserPlus } from "lucide-react";
 import type { SessionPayload } from "@/lib/auth/session";
+import type { CurrencyMode } from "@/lib/currency/mode";
+import { CurrencyToggle } from "@/components/currency/CurrencyToggle";
 
-export function AppHeader({ session }: { session: SessionPayload | null }) {
+export function AppHeader({
+  session,
+  currencyMode = "play",
+  playBalance,
+  realBalance,
+}: {
+  session: SessionPayload | null;
+  currencyMode?: CurrencyMode;
+  playBalance?: number;
+  realBalance?: number;
+}) {
   return (
     <header className="cartola-header sticky top-0 z-40 border-b border-zinc-800">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
@@ -27,6 +39,14 @@ export function AppHeader({ session }: { session: SessionPayload | null }) {
         </Link>
 
         <div className="flex items-center gap-2">
+          <div className="hidden lg:block">
+            <CurrencyToggle
+              mode={currencyMode}
+              playBalance={playBalance}
+              realBalance={realBalance}
+              compact
+            />
+          </div>
           {session ? (
             <>
               <Link

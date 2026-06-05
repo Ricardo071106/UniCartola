@@ -119,26 +119,11 @@ export function PlayoffBracket({
   const [bracket, setBracket] = useState(initialBracket);
   const [loading, setLoading] = useState(false);
 
-  function bracketNeedsRefresh(data: PlayoffBracketData | null) {
-    if (!data?.rounds?.length) return true;
-    return data.rounds.some((round) =>
-      round.matches.some(
-        (m) =>
-          !m.homeName?.trim() ||
-          !m.awayName?.trim() ||
-          m.homeName === "A definir" ||
-          m.awayName === "A definir"
-      )
-    );
-  }
-
   useEffect(() => {
     setBracket(initialBracket);
 
-    if (!bracketNeedsRefresh(initialBracket)) return;
-
     const controller = new AbortController();
-    setLoading(true);
+    setLoading(!initialBracket?.rounds?.length);
 
     fetch(`/api/playoffs?sport=${sport}&series=${series}`, {
       signal: controller.signal,

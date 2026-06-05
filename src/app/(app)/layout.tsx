@@ -1,5 +1,9 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { getSession } from "@/lib/auth/session";
+import { getCurrencyMode } from "@/lib/currency/server";
+import { requireDb } from "@/lib/db";
+import { users } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 export default async function AppLayout({
   children,
@@ -7,5 +11,29 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const session = await getSession();
-  return <AppShell session={session}>{children}</AppShell>;
+  const currencyMode = await getCurrencyMode();
+
+  let playBalance = 10000;
+  let realBalance = 0;
+  if (session) {
+    const db = requireDb();
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, session.userId))
+      .limit(1);
+    playBalance = user?.playBalance ?? 10000;
+    realBalance = user?.realBalance ?? 0;
+  }
+
+  return (
+    <AppShell
+      session={session}
+      currencyMode={currencyMode}
+      playBalance={playBalance}
+      realBalance={realBalance}
+    >
+      {children}
+    </AppShell>
+  );
 }
