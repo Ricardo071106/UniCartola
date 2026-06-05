@@ -400,16 +400,22 @@ export async function getPlayoffBracket(
 export async function getPlayoffBracketWithBoletim(
   sportSlug: SportSlug,
   series: SeriesLetter,
-  timeoutMs = 8000
+  timeoutMs = 12000
 ): Promise<PlayoffBracket | null> {
   const { withTimeout } = await import("@/lib/utils/timeout");
 
-  const fromDb = await getPlayoffBracketFromDb(sportSlug, series);
+  return withTimeout(
+    (async () => {
+      const fromDb = await getPlayoffBracketFromDb(sportSlug, series);
 
-  const [fromNdu, fromBoletim] = await Promise.all([
-    withTimeout(getPlayoffBracketFromNduJogos(sportSlug, series), 6000, null),
-    withTimeout(getPlayoffBracketFromBoletim(sportSlug, series), timeoutMs, null),
-  ]);
+      const [fromNdu, fromBoletim] = await Promise.all([
+        withTimeout(getPlayoffBracketFromNduJogos(sportSlug, series), 5000, null),
+        withTimeout(getPlayoffBracketFromBoletim(sportSlug, series), 10000, null),
+      ]);
 
-  return mergeBrackets(fromDb, fromNdu, fromBoletim);
+      return mergeBrackets(fromDb, fromNdu, fromBoletim);
+    })(),
+    timeoutMs,
+    null
+  );
 }

@@ -3,14 +3,33 @@ import pdf from "pdf-parse";
 import { fetchNduBinary, fetchNduHtml, NDU_BOLETIM_URL } from "./fetch";
 import { parseBoletimIndex, parseBoletimPdfText } from "./boletim-parser";
 import type { ParsedMatchRow } from "./parser";
+import { withTimeout } from "@/lib/utils/timeout";
 
-const BOLETIM_HISTORY_LIMIT = 8;
+const BOLETIM_HISTORY_LIMIT = 3;
+const PDF_FETCH_TIMEOUT_MS = 6000;
+const BOLETIM_PARSE_TIMEOUT_MS = 15000;
 
 export async function fetchLatestBoletimPdf(
   year = 2026
 ): Promise<{ buffer: Buffer; entryId: string; title: string } | null> {
   const batch = await fetchRecentBoletimPdfs(year, 1);
   return batch[0] ?? null;
+}
+
+async function fetchOneBoletimPdf(entry: {
+  id: string;
+  title: string;
+}): Promise<{ buffer: Buffer; entryId: string; title: string } | null> {
+  const url = `https://www.ndu.com.br/boletim/ler_boletim/${entry.id}`;
+  return withTimeout(
+    fetchNduBinary(url, NDU_BOLETIM_URL).then((buffer) => ({
+      buffer,
+      entryId: entry.id,
+      title: entry.title,
+    })),
+    PDF_FETCH_TIMEOUT_MS,
+    null
+  );
 }
 
 export async function fetchRecentBoletimPdfs(
@@ -21,16 +40,24 @@ export async function fetchRecentBoletimPdfs(
   const entries = parseBoletimIndex(html, year).slice(0, limit);
   if (entries.length === 0) return [];
 
-  const results: { buffer: Buffer; entryId: string; title: string }[] = [];
-  for (const entry of entries) {
-    const url = `https://www.ndu.com.br/boletim/ler_boletim/${entry.id}`;
-    const buffer = await fetchNduBinary(url, NDU_BOLETIM_URL);
-    results.push({ buffer, entryId: entry.id, title: entry.title });
-  }
-  return results;
+  const settled = await Promise.allSettled(
+    entries.map((entry) => fetchOneBoletimPdf(entry))
+  );
+
+  return settled
+    .filter(
+      (
+        r
+      ): r is PromiseFulfilledResult<{
+        buffer: Buffer;
+        entryId: string;
+        title: string;
+      }> => r.status === "fulfilled" && r.value != null
+    )
+    .map((r) => r.value);
 }
 
-export async function parseBoletimMatches(
+async function parseBoletimMatchesInner(
   year = 2026
 ): Promise<{ rows: ParsedMatchRow[]; boletimId: string; title: string } | null> {
   const pdfs = await fetchRecentBoletimPdfs(year);
@@ -56,3 +83,12 @@ export async function parseBoletimMatches(
   };
 }
 
+export async function parseBoletimMatches(
+  year = 2026
+): Promise<{ rows: ParsedMatchRow[]; boletimId: string; title: string } | null> {
+  return withTimeout(
+    parseBoletimMatchesInner(year),
+    BOLETIM_PARSE_TIMEOUT_MS,
+    null
+  );
+}

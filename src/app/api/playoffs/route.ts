@@ -1,5 +1,6 @@
 import { getPlayoffBracketWithBoletim } from "@/lib/queries/playoffs";
 import { SERIES } from "@/lib/queries/standings";
+import { withTimeout } from "@/lib/utils/timeout";
 import type { SportSlug } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -17,9 +18,14 @@ export async function GET(request: Request) {
   }
 
   try {
-    const bracket = await getPlayoffBracketWithBoletim(
-      sport as SportSlug,
-      series as (typeof SERIES)[number]
+    const bracket = await withTimeout(
+      getPlayoffBracketWithBoletim(
+        sport as SportSlug,
+        series as (typeof SERIES)[number],
+        10000
+      ),
+      11000,
+      null
     );
     return Response.json(bracket);
   } catch (error) {
