@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import type { Element } from "domhandler";
 import {
   normalizeTeamName,
   modalityToSportSlug,
@@ -59,19 +60,69 @@ export function parseNduDateLabel(
   return new Date(year, month, day, 12, 0, 0);
 }
 
+export function parseNduAthleticsMap(html: string): Map<string, string> {
+  const $ = cheerio.load(html);
+  const map = new Map<string, string>();
+
+  $("select.input_atletica option, select[name='atletica'] option").each(
+    (_, opt) => {
+      const id = $(opt).attr("value")?.trim();
+      const name = $(opt).text().trim();
+      if (id && name && id !== "") {
+        map.set(id, name);
+      }
+    }
+  );
+
+  return map;
+}
+
+export function athleticIdFromLogoUrl(url?: string): string | undefined {
+  return url?.match(/atleticas\/(\d+)/i)?.[1];
+}
+
+function resolveTeamName(
+  title: string | undefined,
+  logoUrl: string | undefined,
+  athleticsMap: Map<string, string>
+): string | undefined {
+  const id = athleticIdFromLogoUrl(logoUrl);
+  if (id && athleticsMap.has(id)) {
+    return athleticsMap.get(id);
+  }
+  return title;
+}
+
 function extractImgMeta(tdHtml: string): { title?: string; src?: string } {
   const title = tdHtml.match(/title="([^"]*)"/i)?.[1]?.trim();
   const src = tdHtml.match(/src="([^"]*)"/i)?.[1]?.trim();
   return { title, src };
 }
 
+function extractNduMatchId(
+  $: cheerio.CheerioAPI,
+  $row: cheerio.Cheerio<Element>
+): string | undefined {
+  const onclick = $row.attr("onclick") ?? "";
+  const fromOnclick = onclick.match(/resultado\/(\d+)/i)?.[1];
+  if (fromOnclick) return fromOnclick;
+
+  let found: string | undefined;
+  $row.find("a[href*='resultado/']").each((_, a) => {
+    if (found) return;
+    const href = $(a).attr("href") ?? "";
+    found = href.match(/resultado\/(\d+)/i)?.[1];
+  });
+  return found;
+}
+
 export function parseNduJogosPage(html: string): ParsedMatchRow[] {
   const $ = cheerio.load(html);
+  const athleticsMap = parseNduAthleticsMap(html);
   const rows: ParsedMatchRow[] = [];
+  const seen = new Set<string>();
 
-  $("#placares_partidas tr[onclick], #placares_partidas tr").each((_, tr) => {
-    const onclick = $(tr).attr("onclick") ?? "";
-    const nduMatchId = onclick.match(/resultado\/(\d+)/i)?.[1];
+  $("#placares_partidas tr").each((_, tr) => {
     const tds = $(tr).find("td");
     if (tds.length < 9) return;
 
@@ -81,7 +132,7 @@ export function parseNduJogosPage(html: string): ParsedMatchRow[] {
     const series = $(tds[2]).text().trim();
     const group = $(tds[3]).text().trim();
 
-    if (!dateLabel || /data|modalidade/i.test(dateLabel)) return;
+    if (!dateLabel || /data|modalidade|série|grupo/i.test(dateLabel)) return;
     if (!modality || !series) return;
 
     const homeMeta = extractImgMeta($(tds[4]).html() ?? "");
@@ -91,6 +142,24 @@ export function parseNduJogosPage(html: string): ParsedMatchRow[] {
 
     if (Number.isNaN(homeScore) || Number.isNaN(awayScore)) return;
 
+    const nduMatchId = extractNduMatchId($, $(tr));
+    const homeLogoUrl = normalizeLogoUrl(homeMeta.src);
+    const awayLogoUrl = normalizeLogoUrl(awayMeta.src);
+    const homeTeamRaw = resolveTeamName(
+      homeMeta.title,
+      homeLogoUrl,
+      athleticsMap
+    );
+    const awayTeamRaw = resolveTeamName(
+      awayMeta.title,
+      awayLogoUrl,
+      athleticsMap
+    );
+
+    const dedupeKey = nduMatchId ?? `${modality}:${series}:${homeTeamRaw}:${awayTeamRaw}:${homeScore}:${awayScore}`;
+    if (seen.has(dedupeKey)) return;
+    seen.add(dedupeKey);
+
     rows.push({
       dateLabel: dateHtml.includes("<br") ? dateLabel : dateLabel,
       modality,
@@ -98,14 +167,16 @@ export function parseNduJogosPage(html: string): ParsedMatchRow[] {
       group,
       homeScore,
       awayScore,
-      homeTeamRaw: homeMeta.title,
-      awayTeamRaw: awayMeta.title,
-      homeLogoUrl: normalizeLogoUrl(homeMeta.src),
-      awayLogoUrl: normalizeLogoUrl(awayMeta.src),
+      homeTeamRaw,
+      awayTeamRaw,
+      homeLogoUrl,
+      awayLogoUrl,
       nduMatchId,
       isFinished: true,
     });
   });
+
+  const upcomingSeen = new Set<string>();
 
   $("#proximas_partidas tr").each((_, tr) => {
     const tds = $(tr).find("td");
@@ -123,16 +194,24 @@ export function parseNduJogosPage(html: string): ParsedMatchRow[] {
     const homeMeta = imgs[0];
     const awayMeta = imgs[1];
     const venueMatch = partidaHtml.match(/local[:\s]*([^<]+)/i);
+    const homeLogoUrl = normalizeLogoUrl(homeMeta?.[2]);
+    const awayLogoUrl = normalizeLogoUrl(awayMeta?.[2]);
+    const homeTeamRaw = resolveTeamName(homeMeta?.[1], homeLogoUrl, athleticsMap);
+    const awayTeamRaw = resolveTeamName(awayMeta?.[1], awayLogoUrl, athleticsMap);
+
+    const dedupeKey = `${modality}:${series}:${dateLabel}:${homeTeamRaw}:${awayTeamRaw}`;
+    if (upcomingSeen.has(dedupeKey)) return;
+    upcomingSeen.add(dedupeKey);
 
     rows.push({
       dateLabel,
       modality,
       series,
       group,
-      homeTeamRaw: homeMeta?.[1],
-      awayTeamRaw: awayMeta?.[1],
-      homeLogoUrl: normalizeLogoUrl(homeMeta?.[2]),
-      awayLogoUrl: normalizeLogoUrl(awayMeta?.[2]),
+      homeTeamRaw,
+      awayTeamRaw,
+      homeLogoUrl,
+      awayLogoUrl,
       isFinished: false,
       venue: venueMatch?.[1]?.trim(),
     });

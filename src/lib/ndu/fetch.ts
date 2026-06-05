@@ -1,0 +1,69 @@
+import {
+  NDU_BROWSER_HEADERS,
+  NDU_MODALITY_IDS,
+} from "./constants";
+
+export const NDU_JOGOS_URL = "https://www.ndu.com.br/jogos";
+export const NDU_LISTAR_URL = "https://www.ndu.com.br/jogos/listar_todos_jogos";
+
+export async function fetchNduHtml(
+  url: string,
+  init?: RequestInit
+): Promise<string> {
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      ...NDU_BROWSER_HEADERS,
+      ...init?.headers,
+    },
+    next: { revalidate: 0 },
+  });
+
+  if (!res.ok) {
+    throw new Error(`NDU fetch failed ${url}: ${res.status}`);
+  }
+
+  const text = await res.text();
+  if (/Not Acceptable|Mod_Security/i.test(text)) {
+    throw new Error(`NDU blocked request to ${url}`);
+  }
+
+  return text;
+}
+
+export async function fetchNduModalityFragment(
+  modalityId: string
+): Promise<string> {
+  const body = new URLSearchParams({
+    modalidade: modalityId,
+    semestre: "",
+    ano: "",
+    atletica: "",
+  });
+
+  return fetchNduHtml(NDU_LISTAR_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Referer: NDU_JOGOS_URL,
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    body,
+  });
+}
+
+/** Página inicial + POST por modalidade (futsal, futebol, basquete). */
+export async function fetchAllNduJogosHtml(): Promise<string> {
+  const baseHtml = await fetchNduHtml(NDU_JOGOS_URL);
+  const modalityIds = [
+    ...NDU_MODALITY_IDS.futsal,
+    ...NDU_MODALITY_IDS.futebol,
+    ...NDU_MODALITY_IDS.basquete,
+  ];
+
+  const fragments = await Promise.all(
+    modalityIds.map((id) => fetchNduModalityFragment(id))
+  );
+
+  return [baseHtml, ...fragments].join("\n");
+}

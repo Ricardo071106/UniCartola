@@ -11,22 +11,16 @@ import {
 } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { ParsedMatchRow } from "./parser";
+import {
+  fetchAllNduJogosHtml,
+  fetchNduHtml,
+  NDU_JOGOS_URL,
+} from "./fetch";
 
-export const NDU_JOGOS_URL = "https://www.ndu.com.br/jogos";
+export { NDU_JOGOS_URL };
 export const NDU_STATS_URL = "https://www.ndu.com.br/estatisticas";
 
-async function fetchHtml(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (compatible; CampusLeague/1.0; university sports aggregator)",
-      Accept: "text/html,application/xhtml+xml",
-    },
-    next: { revalidate: 0 },
-  });
-  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
-  return res.text();
-}
+const DEFAULT_SCORER_LIMIT = 25;
 
 type ResolvedTeam = {
   universityId: string;
@@ -161,7 +155,7 @@ async function syncMatchScorers(
   const db = requireDb();
   const { parseNduResultPage } = await import("./parser");
 
-  const html = await fetchHtml(
+  const html = await fetchNduHtml(
     `https://www.ndu.com.br/jogos/resultado/${nduMatchId}`
   );
   const { scorers } = parseNduResultPage(html);
@@ -274,8 +268,18 @@ async function upsertMatchRow(
   return { created: true, updated: false, matchId };
 }
 
-export async function runFullScrape() {
+export type ScrapeOptions = {
+  syncScorers?: boolean;
+  scorerLimit?: number;
+};
+
+export async function runFullScrape(options: ScrapeOptions = {}) {
   const db = requireDb();
+  const syncScorers =
+    options.syncScorers ?? process.env.NDU_SYNC_SCORERS !== "0";
+  const scorerLimit =
+    options.scorerLimit ??
+    parseInt(process.env.NDU_SCORER_LIMIT ?? String(DEFAULT_SCORER_LIMIT), 10);
 
   const [run] = await db
     .insert(scrapeRuns)
@@ -285,6 +289,7 @@ export async function runFullScrape() {
   const errors: string[] = [];
   let totalCreated = 0;
   let totalUpdated = 0;
+  let scorersSynced = 0;
 
   try {
     const { parseNduJogosPage, modalityToSportSlug } = await import("./parser");
@@ -300,8 +305,14 @@ export async function runFullScrape() {
     const year = activeSeason?.year ?? new Date().getFullYear();
     const seasonId = activeSeason?.id ?? null;
 
-    const html = await fetchHtml(NDU_JOGOS_URL);
+    const html = await fetchAllNduJogosHtml();
     const allRows = parseNduJogosPage(html);
+
+    const finishedForScorers: {
+      matchId: string;
+      nduMatchId: string;
+      isBasketball: boolean;
+    }[] = [];
 
     for (const row of allRows) {
       const slug = modalityToSportSlug(row.modality);
@@ -322,19 +333,35 @@ export async function runFullScrape() {
         if (result.updated) totalUpdated++;
 
         if (
+          syncScorers &&
           row.nduMatchId &&
           row.isFinished &&
           row.homeScore != null
         ) {
-          await syncMatchScorers(
-            result.matchId,
-            row.nduMatchId,
-            slug === "basquete"
-          );
+          finishedForScorers.push({
+            matchId: result.matchId,
+            nduMatchId: row.nduMatchId,
+            isBasketball: slug === "basquete",
+          });
         }
       } catch (e) {
         errors.push(
           `${slug}/${row.nduMatchId ?? row.dateLabel}: ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+    }
+
+    for (const item of finishedForScorers.slice(0, scorerLimit)) {
+      try {
+        await syncMatchScorers(
+          item.matchId,
+          item.nduMatchId,
+          item.isBasketball
+        );
+        scorersSynced++;
+      } catch (e) {
+        errors.push(
+          `scorers/${item.nduMatchId}: ${e instanceof Error ? e.message : String(e)}`
         );
       }
     }
@@ -354,6 +381,12 @@ export async function runFullScrape() {
       created: totalCreated,
       updated: totalUpdated,
       total: allRows.length,
+      parsed: allRows.filter((r) =>
+        ["futebol", "futsal", "basquete"].includes(
+          modalityToSportSlug(r.modality) ?? ""
+        )
+      ).length,
+      scorersSynced,
       errors,
     };
   } catch (e) {
