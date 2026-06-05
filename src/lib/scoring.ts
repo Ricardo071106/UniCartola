@@ -1,6 +1,6 @@
-import type { PredictionResult } from "@/types";
+import type { predictionResultEnum } from "./db/schema";
 
-export type { PredictionResult };
+export type PredictionResult = (typeof predictionResultEnum.enumValues)[number];
 
 export interface PredictionInput {
   result: PredictionResult;

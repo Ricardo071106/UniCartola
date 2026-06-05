@@ -3,13 +3,10 @@
 @tailwind utilities;
 
 :root {
-  --background: #f4f6f9;
-  --foreground: #0f172a;
+  --background: #f9fafb;
+  --foreground: #111827;
   --primary: #1e3a5f;
-  --primary-light: #2d5a8e;
   --success: #059669;
-  --card: #ffffff;
-  --muted: #64748b;
 }
 
 body {
@@ -19,26 +16,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-@layer utilities {
-  .safe-area-pb {
-    padding-bottom: env(safe-area-inset-bottom, 0);
-  }
-  .glass {
-    @apply bg-white/80 backdrop-blur-md border border-white/20;
-  }
-  .sport-card-hover {
-    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl;
-  }
-  .page-gradient {
-    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 40%, #f4f6f9 100%);
-  }
-}
-
-@layer components {
-  .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-[#1e3a5f] px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#1e3a5f]/20 transition hover:bg-[#152a45] active:scale-[0.98];
-  }
-  .section-title {
-    @apply text-lg font-bold text-slate-900 tracking-tight;
-  }
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
