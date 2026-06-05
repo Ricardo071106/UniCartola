@@ -59,8 +59,10 @@ Acesse [http://localhost:3000](http://localhost:3000). No primeiro acesso, compl
 | Campo | Valor |
 |-------|--------|
 | **Root Directory** | *(vazio)* |
-| **Build Command** | `chmod +x scripts/render-build.sh && ./scripts/render-build.sh` |
+| **Build Command** | `npm run build:render` *(ou `chmod +x scripts/render-build.sh && ./scripts/render-build.sh`)* |
 | **Start Command** | `chmod +x scripts/render-start.sh && npm run start:prod` |
+
+Se ainda estiver com o comando antigo `npm install && npm run db:push && npm run build`, também funciona após o fix do `db:push` — mas prefira `npm run build:render`.
 
 **Não** rode `db:push` no build — o build não precisa de banco. O schema sincroniza no **start** (quando `DATABASE_URL` já existe).
 

@@ -7,7 +7,7 @@ elif [ -z "${DATABASE_URL:-}" ]; then
   echo "[db] AVISO: DATABASE_URL não definida — app sobe sem sincronizar schema"
 else
   echo "[db] Sincronizando schema (drizzle push)..."
-  npm run db:push
+  npx drizzle-kit push --force
 fi
 
 if [ "${RUN_DB_SEED:-}" = "1" ]; then

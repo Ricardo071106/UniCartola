@@ -10,7 +10,8 @@
     "render:build": "bash scripts/render-build.sh",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push --force",
+    "db:push": "bash scripts/db-push.sh",
+    "build:render": "npm install --include=dev && npm run db:push && npm run build",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed.ts"
   },
@@ -40,16 +41,16 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "autoprefixer": "^10.4.21",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.21",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "15.5.19",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.22.4",
-    "typescript": "^5"
+    "typescript": "5.8.2"
   }
 }
