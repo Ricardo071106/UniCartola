@@ -13,8 +13,8 @@ fi
 if [ "${RUN_DB_SEED:-}" = "1" ]; then
   npm run db:seed || true
 elif [ -n "${DATABASE_URL:-}" ] && [ "${SKIP_NDU_SCRAPE:-}" != "1" ]; then
-  echo "[ndu] Sincronizando jogos da NDU..."
-  npx tsx scripts/bootstrap-and-scrape.ts || echo "[ndu] Scrape falhou — app sobe mesmo assim"
+  echo "[ndu] Scrape NDU em background — app sobe sem esperar"
+  nohup npx tsx scripts/bootstrap-and-scrape.ts > /tmp/ndu-scrape.log 2>&1 &
 fi
 
 exec npm start

@@ -1,11 +1,7 @@
 // pdf-parse v1 — compatível com Node no servidor
 import pdf from "pdf-parse";
 import { fetchNduBinary, fetchNduHtml, NDU_BOLETIM_URL } from "./fetch";
-import {
-  parseBoletimIndex,
-  parseBoletimPdfText,
-  parseNduDateFromBoletim,
-} from "./boletim-parser";
+import { parseBoletimIndex, parseBoletimPdfText } from "./boletim-parser";
 import type { ParsedMatchRow } from "./parser";
 
 export async function fetchLatestBoletimPdf(
@@ -28,7 +24,7 @@ export async function parseBoletimMatches(
   if (!pdfData) return null;
 
   const parsed = await pdf(pdfData.buffer);
-  const rows = parseBoletimPdfText(parsed.text, year);
+  const rows = parseBoletimPdfText(parsed.text);
 
   return {
     rows,

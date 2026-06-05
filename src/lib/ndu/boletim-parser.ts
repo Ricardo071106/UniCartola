@@ -75,10 +75,7 @@ function parseMatchLine(line: string): Omit<
   };
 }
 
-export function parseBoletimPdfText(
-  text: string,
-  year = 2026
-): ParsedMatchRow[] {
+export function parseBoletimPdfText(text: string): ParsedMatchRow[] {
   const rows: ParsedMatchRow[] = [];
   const seen = new Set<string>();
 
