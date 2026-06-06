@@ -278,7 +278,8 @@ export function PalpitesClient({
 
         {upcomingMatches.length === 0 && (
           <p className="py-8 text-center text-sm text-zinc-400">
-            Nenhum jogo agendado nesta série
+            Nenhum jogo agendado nesta série. Tente outra série (B, C…) — os
+            jogos futuros vêm do boletim NDU e aparecem após o sync.
           </p>
         )}
 

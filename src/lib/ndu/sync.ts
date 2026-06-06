@@ -10,6 +10,7 @@ import {
   universities,
 } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { startOfDayBrazil } from "@/lib/utils";
 import type { ParsedMatchRow } from "./parser";
 import { fetchAllNduJogosRows } from "./jogos-fetch";
 import { fetchNduHtml, NDU_JOGOS_URL } from "./fetch";
@@ -214,6 +215,36 @@ async function syncMatchScorers(
   }
 }
 
+function teamsMatch(
+  m: (typeof matches.$inferSelect),
+  homeNorm: string,
+  awayNorm: string,
+  homeAthleticsId: string | null,
+  awayAthleticsId: string | null,
+  normalizeTeamName: (name: string) => string
+) {
+  if (
+    homeAthleticsId &&
+    awayAthleticsId &&
+    m.homeAthleticsId &&
+    m.awayAthleticsId
+  ) {
+    const direct =
+      m.homeAthleticsId === homeAthleticsId &&
+      m.awayAthleticsId === awayAthleticsId;
+    const swapped =
+      m.homeAthleticsId === awayAthleticsId &&
+      m.awayAthleticsId === homeAthleticsId;
+    if (direct || swapped) return true;
+  }
+
+  const mHome = normalizeTeamName(m.homeTeamName ?? "");
+  const mAway = normalizeTeamName(m.awayTeamName ?? "");
+  const direct = mHome === homeNorm && mAway === awayNorm;
+  const swapped = mHome === awayNorm && mAway === homeNorm;
+  return direct || swapped;
+}
+
 async function findDuplicateMatch(
   sportId: string,
   row: ParsedMatchRow,
@@ -240,24 +271,66 @@ async function findDuplicateMatch(
       if (m.homeScore !== row.homeScore || m.awayScore !== row.awayScore) {
         return false;
       }
-
-      if (
-        homeAthleticsId &&
-        awayAthleticsId &&
-        m.homeAthleticsId &&
-        m.awayAthleticsId
-      ) {
-        return (
-          m.homeAthleticsId === homeAthleticsId &&
-          m.awayAthleticsId === awayAthleticsId
-        );
-      }
-
-      const mHome = normalizeTeamName(m.homeTeamName ?? "");
-      const mAway = normalizeTeamName(m.awayTeamName ?? "");
-      return mHome === homeNorm && mAway === awayNorm;
+      return teamsMatch(
+        m,
+        homeNorm,
+        awayNorm,
+        homeAthleticsId,
+        awayAthleticsId,
+        normalizeTeamName
+      );
     }) ?? null
   );
+}
+
+async function findDuplicateByTeams(
+  sportId: string,
+  row: ParsedMatchRow,
+  homeTeamName: string,
+  awayTeamName: string,
+  homeAthleticsId: string | null,
+  awayAthleticsId: string | null
+) {
+  const { normalizeTeamName } = await import("./parser");
+  const db = requireDb();
+  if (!row.series || !homeTeamName || !awayTeamName) return null;
+
+  const homeNorm = normalizeTeamName(homeTeamName);
+  const awayNorm = normalizeTeamName(awayTeamName);
+
+  const candidates = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.sportId, sportId));
+
+  return (
+    candidates.find((m) => {
+      if (m.series !== row.series) return false;
+      return teamsMatch(
+        m,
+        homeNorm,
+        awayNorm,
+        homeAthleticsId,
+        awayAthleticsId,
+        normalizeTeamName
+      );
+    }) ?? null
+  );
+}
+
+function resolveMatchStatus(
+  row: ParsedMatchRow,
+  scheduledAt: Date
+): "scheduled" | "finished" {
+  const hasScore =
+    row.isFinished &&
+    row.homeScore != null &&
+    row.awayScore != null;
+  const isFuture = scheduledAt >= startOfDayBrazil();
+  if (!hasScore && isFuture) return "scheduled";
+  if (hasScore && !isFuture) return "finished";
+  if (!hasScore) return "scheduled";
+  return isFuture ? "scheduled" : "finished";
 }
 
 async function upsertMatchRow(
@@ -276,8 +349,7 @@ async function upsertMatchRow(
     parseNduMatchDateTime(row.dateLabel, year) ??
     parseNduDateLabel(row.dateLabel, year) ??
     new Date();
-  const status =
-    row.isFinished && row.homeScore != null ? "finished" : "scheduled";
+  const status = resolveMatchStatus(row, scheduledAt);
   const teams = await resolveMatchTeams(row);
 
   let existing = await db
@@ -286,12 +358,27 @@ async function upsertMatchRow(
     .where(eq(matches.externalKey, externalKey))
     .limit(1);
 
+  const homeName = teams.homeTeamName ?? row.homeTeamRaw ?? "";
+  const awayName = teams.awayTeamName ?? row.awayTeamRaw ?? "";
+
   if (!existing[0] && row.nduMatchId) {
     const duplicate = await findDuplicateMatch(
       sportId,
       row,
-      teams.homeTeamName ?? row.homeTeamRaw ?? "",
-      teams.awayTeamName ?? row.awayTeamRaw ?? "",
+      homeName,
+      awayName,
+      teams.homeAthleticsId,
+      teams.awayAthleticsId
+    );
+    if (duplicate) existing = [duplicate];
+  }
+
+  if (!existing[0] && homeName && awayName) {
+    const duplicate = await findDuplicateByTeams(
+      sportId,
+      row,
+      homeName,
+      awayName,
       teams.homeAthleticsId,
       teams.awayAthleticsId
     );
@@ -385,8 +472,13 @@ async function ingestMatchRows(
     isBasketball: boolean;
   }[] = [];
 
+  const sortedRows = [...allRows].sort((a, b) => {
+    if (a.isFinished === b.isFinished) return 0;
+    return a.isFinished ? -1 : 1;
+  });
+
   let processed = 0;
-  for (const row of allRows) {
+  for (const row of sortedRows) {
     const slug = modalityToSportSlug(row.modality);
     if (!slug || !["futebol", "futsal", "basquete"].includes(slug)) continue;
 

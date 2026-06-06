@@ -66,6 +66,34 @@ export function parseBoletimIndex(html: string, year = 2026): BoletimEntry[] {
   return entries.sort((a, b) => parseInt(b.id, 10) - parseInt(a.id, 10));
 }
 
+/** Jogo de grupo ainda sem placar (ex.: `05/06 SAB Ginásio A Time Casa X Time Fora`). */
+function parseGroupScheduledLine(line: string): Omit<
+  ParsedMatchRow,
+  "modality" | "series"
+> | null {
+  const trimmed = line.replace(/\s+/g, " ").trim();
+  if (/\d{1,2}\s+X\s+\d{1,2}/i.test(trimmed)) return null;
+
+  const m = trimmed.match(
+    /^(\d{2}\/\d{2})\s+(\S+)\s+(.+?)\s+([A-F])\s+(.+?)\s+X\s+(.+)$/i
+  );
+  if (!m) return null;
+
+  const homeTeamRaw = m[5].trim();
+  const awayTeamRaw = m[6].trim().replace(/\s*\(DT\)\s*$/i, "").trim();
+  if (!homeTeamRaw || !awayTeamRaw) return null;
+  if (/^X$/i.test(homeTeamRaw) && /^X$/i.test(awayTeamRaw)) return null;
+
+  return {
+    dateLabel: `${m[1]} ${m[2]}`,
+    group: m[4].toUpperCase(),
+    homeTeamRaw,
+    awayTeamRaw,
+    isFinished: false,
+    venue: m[3].trim(),
+  };
+}
+
 function parseGroupMatchLine(line: string): Omit<
   ParsedMatchRow,
   "modality" | "series"
@@ -177,7 +205,7 @@ function parsePlayoffRecord(
     stripPlayoffNoise(afterScore.trim(), true)
   );
 
-  if (/^X$/i.test(homeTeamRaw) || /^X$/i.test(awayTeamRaw)) return null;
+  if (/^X$/i.test(homeTeamRaw) && /^X$/i.test(awayTeamRaw)) return null;
 
   const venueMatch = beforeScore.match(
     /^(\d{2}\/\d{2})\s+(\S+)\s+([\wÀ-ú\s-]+?)\s+(8ªs|4ªs|Oitavas|Quartas|Semi|Final)/i
@@ -284,7 +312,8 @@ export function parseBoletimPdfText(text: string): ParsedMatchRow[] {
           groupEnd === -1 ? text.slice(start) : text.slice(start, start + groupEnd);
 
         for (const line of groupChunk.split("\n")) {
-          const parsed = parseGroupMatchLine(line);
+          const parsed =
+            parseGroupMatchLine(line) ?? parseGroupScheduledLine(line);
           if (!parsed) continue;
           pushRow(rows, seen, {
             ...parsed,
