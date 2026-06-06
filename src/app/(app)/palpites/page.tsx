@@ -74,11 +74,15 @@ export default async function PalpitesPage({
     }
   }
 
-  const upcomingMatches = (
-    await safeQuery(() => getMatchesByFilter({ tab: "upcoming" }), [])
-  )
-    .filter((m) => sportFilter === "all" || m.sport.slug === sportFilter)
-    .filter((m) => m.series === series);
+  const upcomingMatches = await safeQuery(
+    () =>
+      getMatchesByFilter({
+        tab: "upcoming",
+        series,
+        ...(sportFilter !== "all" ? { sport: sportFilter } : {}),
+      }),
+    []
+  );
 
   const marketPredictions =
     session && sportFilter !== "all"

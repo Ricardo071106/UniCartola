@@ -85,7 +85,7 @@ export async function getUserSavedMatchPredictions(
   const conditions = [
     eq(predictions.userId, userId),
     eq(predictions.currencyMode, currencyMode),
-    eq(matches.series, series),
+    eq(matches.series, series.trim().toUpperCase()),
   ];
   if (sportId) conditions.push(eq(matches.sportId, sportId));
 

@@ -6,7 +6,7 @@ import {
   matchStats,
   athletics,
 } from "@/lib/db/schema";
-import { eq, and, gte, lte, desc, asc, inArray } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, inArray, type SQL } from "drizzle-orm";
 import type { MatchWithTeams, SportSlug } from "@/types";
 import { realMatchesOnly } from "./match-filters";
 import {
@@ -168,14 +168,38 @@ export async function getRecentMatches(limit = 6): Promise<MatchWithTeams[]> {
   return enrichMatches(rows);
 }
 
+async function buildSportSeriesConditions(options: {
+  sport?: SportSlug;
+  series?: string;
+}): Promise<SQL[]> {
+  const extra: SQL[] = [];
+  if (options.series?.trim()) {
+    extra.push(eq(matches.series, options.series.trim().toUpperCase()));
+  }
+  if (options.sport) {
+    const db = requireDb();
+    const [sportRow] = await db
+      .select({ id: sports.id })
+      .from(sports)
+      .where(eq(sports.slug, options.sport))
+      .limit(1);
+    if (sportRow) extra.push(eq(matches.sportId, sportRow.id));
+  }
+  return extra;
+}
+
 export async function getMatchesByFilter(options: {
   sport?: SportSlug;
+  series?: string;
   tab: "upcoming" | "today" | "tomorrow" | "week" | "finished";
 }): Promise<MatchWithTeams[]> {
   const db = requireDb();
   const now = new Date();
   const tomorrow = addDaysBrazil(now, 1);
   const weekEnd = addDaysBrazil(now, 7);
+  const scopeFilters = await buildSportSeriesConditions(options);
+  const hasScope = Boolean(options.sport || options.series?.trim());
+  const listLimit = hasScope ? 500 : 150;
 
   let rows;
 
@@ -187,18 +211,25 @@ export async function getMatchesByFilter(options: {
         and(
           realMatchesOnly(),
           inArray(matches.status, ["scheduled", "live"]),
-          gte(matches.scheduledAt, startOfDayBrazil(now))
+          gte(matches.scheduledAt, startOfDayBrazil(now)),
+          ...scopeFilters
         )
       )
       .orderBy(asc(matches.scheduledAt))
-      .limit(100);
+      .limit(listLimit);
   } else if (options.tab === "finished") {
     rows = await db
       .select()
       .from(matches)
-      .where(and(realMatchesOnly(), eq(matches.status, "finished")))
+      .where(
+        and(
+          realMatchesOnly(),
+          eq(matches.status, "finished"),
+          ...scopeFilters
+        )
+      )
       .orderBy(desc(matches.scheduledAt))
-      .limit(50);
+      .limit(hasScope ? 200 : 50);
   } else if (options.tab === "today") {
     rows = await db
       .select()
@@ -207,10 +238,12 @@ export async function getMatchesByFilter(options: {
         and(
           realMatchesOnly(),
           gte(matches.scheduledAt, startOfDayBrazil(now)),
-          lte(matches.scheduledAt, endOfDayBrazil(now))
+          lte(matches.scheduledAt, endOfDayBrazil(now)),
+          ...scopeFilters
         )
       )
-      .orderBy(asc(matches.scheduledAt));
+      .orderBy(asc(matches.scheduledAt))
+      .limit(listLimit);
   } else if (options.tab === "tomorrow") {
     rows = await db
       .select()
@@ -219,10 +252,12 @@ export async function getMatchesByFilter(options: {
         and(
           realMatchesOnly(),
           gte(matches.scheduledAt, startOfDayBrazil(tomorrow)),
-          lte(matches.scheduledAt, endOfDayBrazil(tomorrow))
+          lte(matches.scheduledAt, endOfDayBrazil(tomorrow)),
+          ...scopeFilters
         )
       )
-      .orderBy(asc(matches.scheduledAt));
+      .orderBy(asc(matches.scheduledAt))
+      .limit(listLimit);
   } else {
     rows = await db
       .select()
@@ -232,16 +267,13 @@ export async function getMatchesByFilter(options: {
           realMatchesOnly(),
           inArray(matches.status, ["scheduled", "live"]),
           gte(matches.scheduledAt, startOfDayBrazil(now)),
-          lte(matches.scheduledAt, endOfDayBrazil(weekEnd))
+          lte(matches.scheduledAt, endOfDayBrazil(weekEnd)),
+          ...scopeFilters
         )
       )
       .orderBy(asc(matches.scheduledAt))
-      .limit(100);
+      .limit(listLimit);
   }
 
-  const enriched = await enrichMatches(rows);
-  if (options.sport) {
-    return enriched.filter((m) => m.sport.slug === options.sport);
-  }
-  return enriched;
+  return enrichMatches(rows);
 }

@@ -363,6 +363,16 @@ function teamsMatch(
   return direct || swapped;
 }
 
+function normalizeSeriesLabel(series: string | undefined | null): string | null {
+  if (!series?.trim()) return null;
+  const t = series.trim().toUpperCase();
+  const letter = t.match(/^([A-F])$/)?.[1];
+  if (letter) return letter;
+  const fromLabel = t.match(/S[EÉ]RIE\s*([A-F])/i)?.[1];
+  if (fromLabel) return fromLabel.toUpperCase();
+  return t.slice(0, 8);
+}
+
 function resolveMatchStatus(
   row: ParsedMatchRow,
   scheduledAt: Date
@@ -371,9 +381,7 @@ function resolveMatchStatus(
     row.isFinished &&
     row.homeScore != null &&
     row.awayScore != null;
-  const isFuture = scheduledAt >= startOfDayBrazil();
-  if (!hasScore && isFuture) return "scheduled";
-  if (hasScore && !isFuture) return "finished";
+  const isFuture = scheduledAt.getTime() > Date.now();
   if (!hasScore) return "scheduled";
   return isFuture ? "scheduled" : "finished";
 }
@@ -461,7 +469,7 @@ async function upsertMatchRow(
           scheduledAt,
           updatedAt: new Date(),
           externalKey: row.nduMatchId ? externalKey : existing.externalKey,
-          series: row.series,
+          series: normalizeSeriesLabel(row.series),
           groupName: row.group?.slice(0, 8) ?? row.group,
           modality: row.modality,
           venue: row.venue?.slice(0, 200) ?? existing.venue,
@@ -488,7 +496,7 @@ async function upsertMatchRow(
       sportId,
       seasonId,
       modality: row.modality,
-      series: row.series,
+      series: normalizeSeriesLabel(row.series),
       groupName: safeGroup,
       externalKey,
       scheduledAt,

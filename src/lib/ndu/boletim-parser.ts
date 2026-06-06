@@ -30,15 +30,6 @@ import { normalizePlayoffPhase } from "./playoff-phases";
 
 export { normalizePlayoffPhase, isPlayoffPhase } from "./playoff-phases";
 
-function isGroupStageSectionMatch(text: string, index: number): boolean {
-  const prefix = text.slice(Math.max(0, index - 20), index);
-  return (
-    /Classificação\s+–\s*$/i.test(prefix) ||
-    /Aproveitamento\s+–\s*$/i.test(prefix) ||
-    /Playoffs\s+–\s*$/i.test(prefix)
-  );
-}
-
 export function parseBoletimIndex(html: string, year = 2026): BoletimEntry[] {
   const $ = cheerio.load(html);
   const entries: BoletimEntry[] = [];
@@ -360,26 +351,22 @@ export function parseBoletimPdfText(text: string): ParsedMatchRow[] {
       if (m.index === undefined) continue;
 
       const series = m[1].toUpperCase();
-      const inPlayoffsOnlySection = isGroupStageSectionMatch(text, m.index);
+      const start = m.index + m[0].length;
+      const groupEnd = text
+        .slice(start)
+        .search(/Classificação\s+–|Playoffs\s+–/i);
+      const groupChunk =
+        groupEnd === -1 ? text.slice(start) : text.slice(start, start + groupEnd);
 
-      if (!inPlayoffsOnlySection) {
-        const start = m.index + m[0].length;
-        const groupEnd = text
-          .slice(start)
-          .search(/Classificação\s+–|Playoffs\s+–/i);
-        const groupChunk =
-          groupEnd === -1 ? text.slice(start) : text.slice(start, start + groupEnd);
-
-        for (const line of groupChunk.split("\n")) {
-          const parsed =
-            parseGroupMatchLine(line) ?? parseGroupScheduledLine(line);
-          if (!parsed) continue;
-          pushRow(rows, seen, {
-            ...parsed,
-            modality: sport.modality,
-            series,
-          });
-        }
+      for (const line of groupChunk.split("\n")) {
+        const parsed =
+          parseGroupMatchLine(line) ?? parseGroupScheduledLine(line);
+        if (!parsed) continue;
+        pushRow(rows, seen, {
+          ...parsed,
+          modality: sport.modality,
+          series,
+        });
       }
 
       const playoffChunk = extractPlayoffChunk(text, sport.modality, series);
