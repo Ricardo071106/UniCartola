@@ -46,7 +46,7 @@ const resultOptions: {
 }[] = [
   { value: "home", label: "Mandante", icon: <Trophy className="h-4 w-4" /> },
   { value: "draw", label: "Empate", icon: <Minus className="h-4 w-4" /> },
-  { value: "away", label: "Visitante", icon: <Trophy className="h-4 w-4 rotate-180" /> },
+  { value: "away", label: "Visitante", icon: <Trophy className="h-4 w-4" /> },
 ];
 
 function StatInput({

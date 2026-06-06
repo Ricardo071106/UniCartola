@@ -50,6 +50,13 @@
       "when": 1780622104000,
       "tag": "0006_stripe_real_entry",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1780622105000,
+      "tag": "0007_prediction_stats",
+      "breakpoints": true
     }
   ]
 }
