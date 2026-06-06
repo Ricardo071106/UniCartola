@@ -102,6 +102,9 @@ class NduSyncContext {
 
   async resolveTeam(rawName: string, logoUrl?: string): Promise<ResolvedTeam> {
     const { athleticIdFromLogoUrl } = await import("./parser");
+    if (rawName.length > 200) {
+      rawName = rawName.slice(0, 200).trim();
+    }
     const cacheKey = `${rawName}|${logoUrl ?? ""}`;
     const cached = this.teamCache.get(cacheKey);
     if (cached) return cached;
@@ -443,6 +446,11 @@ async function upsertMatchRow(
           existing.awayAthleticsId !== teams.awayAthleticsId));
 
     if (needsUpdate) {
+      const safeTeams = {
+        ...teams,
+        homeTeamName: teams.homeTeamName?.slice(0, 255) ?? null,
+        awayTeamName: teams.awayTeamName?.slice(0, 255) ?? null,
+      };
       const [updated] = await db
         .update(matches)
         .set({
@@ -454,9 +462,10 @@ async function upsertMatchRow(
           updatedAt: new Date(),
           externalKey: row.nduMatchId ? externalKey : existing.externalKey,
           series: row.series,
-          groupName: row.group,
+          groupName: row.group?.slice(0, 8) ?? row.group,
           modality: row.modality,
-          ...teams,
+          venue: row.venue?.slice(0, 200) ?? existing.venue,
+          ...safeTeams,
         })
         .where(eq(matches.id, existing.id))
         .returning();
@@ -465,6 +474,14 @@ async function upsertMatchRow(
     return { created: false, updated: needsUpdate, matchId };
   }
 
+  const safeTeams = {
+    ...teams,
+    homeTeamName: teams.homeTeamName?.slice(0, 255) ?? null,
+    awayTeamName: teams.awayTeamName?.slice(0, 255) ?? null,
+  };
+  const safeVenue = row.venue?.slice(0, 200) ?? null;
+  const safeGroup = row.group?.slice(0, 8) ?? row.group;
+
   const [inserted] = await db
     .insert(matches)
     .values({
@@ -472,14 +489,14 @@ async function upsertMatchRow(
       seasonId,
       modality: row.modality,
       series: row.series,
-      groupName: row.group,
+      groupName: safeGroup,
       externalKey,
       scheduledAt,
       status,
       homeScore: row.homeScore ?? null,
       awayScore: row.awayScore ?? null,
-      venue: row.venue ?? null,
-      ...teams,
+      venue: safeVenue,
+      ...safeTeams,
     })
     .returning();
 

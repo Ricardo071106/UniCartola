@@ -154,6 +154,63 @@ function playoffTeamLabel(raw: string, stripped: string): string {
   return "A definir";
 }
 
+const MAX_TEAM_NAME_LEN = 200;
+
+/** PDF às vezes cola vários jogos na mesma linha — corta lixo após o placar. */
+function trimTeamLabel(text: string): string {
+  let t = text.trim();
+  const cuts = [
+    /\s+\d+º\s+(?:colocado|melhor)\b/i,
+    /\s+(?:Semi|Final|4ªs|8ªs|Quartas|Oitavas)\s+(?=[A-Za-zÀ-ú0-9])/i,
+    /\s+\d{2}\/\d{2}\s+\S+/,
+    /\s+\d{1,2}\s+X\s+\d{1,2}\s+/i,
+  ];
+  for (const pat of cuts) {
+    const m = t.match(pat);
+    if (m?.index != null && m.index > 3) {
+      t = t.slice(0, m.index).trim();
+      break;
+    }
+  }
+  if (t.length > MAX_TEAM_NAME_LEN) t = t.slice(0, MAX_TEAM_NAME_LEN).trim();
+  return t;
+}
+
+/** Divide registros de playoff colados (várias datas na mesma string). */
+function splitMergedPlayoffRecords(record: string): string[] {
+  const byDate = record
+    .split(/(?=\d{2}\/\d{2}\s+\S+)/)
+    .map((s) => s.trim())
+    .filter((s) => /^\d{2}\/\d{2}/.test(s));
+  if (byDate.length > 1) return byDate;
+
+  const byNextMatch = record
+    .split(
+      /(?<=\d{1,2}\s+X\s+\d{1,2})\s+(?=\d+º\s+(?:colocado|melhor)\b)/i
+    )
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (byNextMatch.length > 1) {
+    const prefix = record.match(/^(\d{2}\/\d{2}\s+\S+\s+)/)?.[1] ?? "";
+    return byNextMatch.map((part, i) =>
+      i === 0 || /^\d{2}\/\d{2}/.test(part) ? part : `${prefix}${part}`
+    );
+  }
+
+  const bySemi = record
+    .split(/\s+(?=(?:Semi|Final|Quartas|4ªs|8ªs)\s+(?:\d+º\s+)?(?:colocado|melhor)\b)/i)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (bySemi.length > 1) {
+    const prefix = record.match(/^(\d{2}\/\d{2}\s+\S+\s+)/)?.[1] ?? "";
+    return bySemi.map((part, i) =>
+      i === 0 || /^\d{2}\/\d{2}/.test(part) ? part : `${prefix}${part}`
+    );
+  }
+
+  return [record];
+}
+
 function parsePlayoffRecord(
   raw: string
 ): Omit<ParsedMatchRow, "modality" | "series"> | null {
@@ -196,16 +253,18 @@ function parsePlayoffRecord(
     .replace(/^[\wÀ-ú\s-]+?\s+(8ªs|4ªs|Semi|Final)\s*/i, "")
     .trim();
 
-  const homeTeamRaw = playoffTeamLabel(
-    homePart,
-    stripPlayoffNoise(homePart, true)
+  const homeTeamRaw = trimTeamLabel(
+    playoffTeamLabel(homePart, stripPlayoffNoise(homePart, true))
   );
-  const awayTeamRaw = playoffTeamLabel(
-    afterScore.trim(),
-    stripPlayoffNoise(afterScore.trim(), true)
+  const awayTeamRaw = trimTeamLabel(
+    playoffTeamLabel(afterScore.trim(), stripPlayoffNoise(afterScore.trim(), true))
   );
 
   if (/^X$/i.test(homeTeamRaw) && /^X$/i.test(awayTeamRaw)) return null;
+  if (!homeTeamRaw || !awayTeamRaw) return null;
+  if (homeTeamRaw.length > MAX_TEAM_NAME_LEN || awayTeamRaw.length > MAX_TEAM_NAME_LEN) {
+    return null;
+  }
 
   const venueMatch = beforeScore.match(
     /^(\d{2}\/\d{2})\s+(\S+)\s+([\wÀ-ú\s-]+?)\s+(8ªs|4ªs|Oitavas|Quartas|Semi|Final)/i
@@ -326,13 +385,15 @@ export function parseBoletimPdfText(text: string): ParsedMatchRow[] {
       const playoffChunk = extractPlayoffChunk(text, sport.modality, series);
       if (playoffChunk) {
         for (const record of mergePlayoffLines(playoffChunk)) {
-          const parsed = parsePlayoffRecord(record);
-          if (!parsed) continue;
-          pushRow(rows, seen, {
-            ...parsed,
-            modality: sport.modality,
-            series,
-          });
+          for (const piece of splitMergedPlayoffRecords(record)) {
+            const parsed = parsePlayoffRecord(piece);
+            if (!parsed) continue;
+            pushRow(rows, seen, {
+              ...parsed,
+              modality: sport.modality,
+              series,
+            });
+          }
         }
       }
     }

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import * as cheerio from "cheerio";
 import type { Element } from "domhandler";
 import {
@@ -282,5 +283,8 @@ export function buildExternalKey(
 ): string {
   if (row.nduMatchId) return `ndu:${row.nduMatchId}`;
   const teams = `${row.homeTeamRaw ?? "h"}:${row.awayTeamRaw ?? "a"}`;
-  return `${sportSlug}:${row.dateLabel}:${row.series}:${row.group}:${teams}:${row.homeScore ?? "x"}:${row.awayScore ?? "x"}`;
+  const key = `${sportSlug}:${row.dateLabel}:${row.series}:${row.group}:${teams}:${row.homeScore ?? "x"}:${row.awayScore ?? "x"}`;
+  if (key.length <= 255) return key;
+  const hash = createHash("sha256").update(key).digest("hex").slice(0, 40);
+  return `${sportSlug}:hash:${hash}`;
 }
