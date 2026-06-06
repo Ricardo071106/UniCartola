@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { submitPrediction } from "@/actions/predictions";
+import { isMatchPredictionOpen } from "@/lib/palpites/match-locks";
 import {
   MATCH_PREDICTION_POINTS,
   matchPointsBreakdown,
@@ -34,6 +35,7 @@ interface MatchPredictionFormProps {
   homeTeamName: string;
   awayTeamName: string;
   matchStatus: string;
+  scheduledAt: Date | string;
   existingPrediction?: MatchPredictionView | null;
   variant?: "inline" | "card";
   onSaved?: () => void;
@@ -87,6 +89,7 @@ export function MatchPredictionForm({
   homeTeamName,
   awayTeamName,
   matchStatus,
+  scheduledAt,
   existingPrediction,
   variant = "card",
   onSaved,
@@ -117,7 +120,9 @@ export function MatchPredictionForm({
   const [savedOpen, setSavedOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const disabled = matchStatus === "finished" || matchStatus === "live";
+  const lock = isMatchPredictionOpen({ status: matchStatus, scheduledAt });
+  const disabled = !lock.open;
+  const closedMessage = lock.message;
   const isBasketball = sportSlug === "basquete";
   const pointsInfo = matchPointsBreakdown(sportSlug);
   const maxPts = maxMatchPredictionPoints(sportSlug);
@@ -296,7 +301,7 @@ export function MatchPredictionForm({
           </Button>
         ) : (
           <p className="text-center text-sm text-zinc-400">
-            Palpites encerrados para esta partida
+            {closedMessage ?? "Palpites encerrados para esta partida"}
           </p>
         )}
       </div>

@@ -9,11 +9,16 @@ import {
   getScorerOptions,
   getSeriesTeamOptions,
 } from "@/lib/queries/palpites-options";
-import { parseSeries, parseSport } from "@/lib/queries/standings";
+import { parseSeries, parsePalpitesSport } from "@/lib/queries/standings";
 import { getUserBalances } from "@/lib/queries/user-balances";
 import { getSession } from "@/lib/auth/session";
 import { getCurrencyMode } from "@/lib/currency/server";
 import { safeQuery } from "@/lib/db/safe-query";
+import {
+  getMarketLocksForUser,
+  syncEliminationLocks,
+} from "@/lib/palpites/market-locks";
+import type { SportSlug } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +28,7 @@ export default async function PalpitesPage({
   searchParams: Promise<{ sport?: string; series?: string }>;
 }) {
   const params = await searchParams;
-  const sport = parseSport(params.sport);
+  const sportFilter = parsePalpitesSport(params.sport);
   const series = parseSeries(params.series);
 
   after(() => {
@@ -36,18 +41,22 @@ export default async function PalpitesPage({
 
   const session = await getSession();
   const currencyMode = await getCurrencyMode();
+  const sportForData = sportFilter === "all" ? "futsal" : sportFilter;
 
-  const [teamOptions, scorerOptions, cardOptions] = await Promise.all([
-    safeQuery(() => getSeriesTeamOptions(sport, series), []),
-    getScorerOptions(sport, series).catch((error) => {
-      console.error("[palpites] artilheiros:", error);
-      return [];
-    }),
-    getCardPlayerOptions(sport, series).catch((error) => {
-      console.error("[palpites] cartões:", error);
-      return [];
-    }),
-  ]);
+  const [teamOptions, scorerOptions, cardOptions] =
+    sportFilter === "all"
+      ? [[], [], []]
+      : await Promise.all([
+          safeQuery(() => getSeriesTeamOptions(sportForData, series), []),
+          getScorerOptions(sportForData, series).catch((error) => {
+            console.error("[palpites] artilheiros:", error);
+            return [];
+          }),
+          getCardPlayerOptions(sportForData, series).catch((error) => {
+            console.error("[palpites] cartões:", error);
+            return [];
+          }),
+        ]);
 
   let totalPoints = 0;
   let realBalance = 0;
@@ -57,33 +66,50 @@ export default async function PalpitesPage({
     totalPoints = balances.totalPoints;
     realBalance = balances.realBalance;
     realEntryPaid = balances.realEntryPaid;
+
+    if (sportFilter !== "all") {
+      await syncEliminationLocks(session.userId, currencyMode).catch((e) =>
+        console.error("[palpites] sync locks:", e)
+      );
+    }
   }
 
   const upcomingMatches = (
-    await safeQuery(() => getMatchesByFilter({ sport, tab: "upcoming" }), [])
+    await safeQuery(() => getMatchesByFilter({ tab: "upcoming" }), [])
   )
-    .filter((m) => m.sport.slug === sport)
+    .filter((m) => sportFilter === "all" || m.sport.slug === sportFilter)
     .filter((m) => m.series === series);
 
-  const marketPredictions = session
-    ? await safeQuery(
-        () =>
-          getUserMarketPredictions(
-            session.userId,
-            sport,
-            series,
-            currencyMode
-          ),
-        []
-      )
-    : [];
+  const marketPredictions =
+    session && sportFilter !== "all"
+      ? await safeQuery(
+          () =>
+            getUserMarketPredictions(
+              session.userId,
+              sportFilter as SportSlug,
+              series,
+              currencyMode
+            ),
+          []
+        )
+      : [];
+
+  const marketLocks =
+    session && sportFilter !== "all"
+      ? await getMarketLocksForUser(
+          session.userId,
+          sportFilter as SportSlug,
+          series,
+          currencyMode
+        )
+      : null;
 
   const savedMatchPredictions = session
     ? await safeQuery(
         () =>
           getUserSavedMatchPredictions(
             session.userId,
-            sport,
+            sportFilter,
             series,
             currencyMode
           ),
@@ -101,7 +127,7 @@ export default async function PalpitesPage({
       </div>
       <Suspense fallback={<p className="text-zinc-400">Carregando...</p>}>
         <PalpitesClient
-          sport={sport}
+          sportFilter={sportFilter}
           series={series}
           currencyMode={currencyMode}
           totalPoints={totalPoints}
@@ -114,6 +140,7 @@ export default async function PalpitesPage({
           upcomingMatches={upcomingMatches}
           savedMatchPredictions={savedMatchPredictions}
           marketPredictions={marketPredictions}
+          marketLocks={marketLocks}
         />
       </Suspense>
     </div>

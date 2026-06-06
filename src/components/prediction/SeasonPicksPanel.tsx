@@ -23,6 +23,7 @@ import { SEASON_PREDICTION_POINTS } from "@/lib/scoring-config";
 import type { SportSlug } from "@/types";
 import type { MarketPredictionView } from "@/lib/queries/market-predictions";
 import type { PlayerOption, TeamOption } from "@/lib/queries/palpites-options";
+import type { MarketLockInfo } from "@/lib/palpites/market-locks";
 
 interface SeasonPicksPanelProps {
   sport: SportSlug;
@@ -33,6 +34,11 @@ interface SeasonPicksPanelProps {
   teamOptions: TeamOption[];
   scorerOptions: PlayerOption[];
   cardOptions: PlayerOption[];
+  marketLocks?: {
+    champion?: MarketLockInfo;
+    top_scorer?: MarketLockInfo;
+    top_cards?: MarketLockInfo;
+  };
   champion?: MarketPredictionView;
   topScorer?: MarketPredictionView;
   topCards?: MarketPredictionView;
@@ -103,6 +109,7 @@ export function SeasonPicksPanel({
   teamOptions,
   scorerOptions,
   cardOptions,
+  marketLocks,
   champion,
   topScorer,
   topCards,
@@ -137,6 +144,22 @@ export function SeasonPicksPanel({
     champion?.athleticsName ??
     teamOptions.find((t) => t.id === champion?.athleticsId)?.name;
 
+  function lockBanner(lock?: MarketLockInfo) {
+    if (!lock?.locked || !lock.message) return null;
+    return (
+      <p
+        className={cn(
+          "rounded-lg px-3 py-2 text-xs",
+          lock.reason === "eliminated"
+            ? "border border-red-500/30 bg-red-500/10 text-red-300"
+            : "border border-amber-500/30 bg-amber-500/10 text-amber-200"
+        )}
+      >
+        {lock.message}
+      </p>
+    );
+  }
+
   return (
     <>
       <div className="space-y-4">
@@ -163,11 +186,17 @@ export function SeasonPicksPanel({
             savedLabel={championName}
             accent="border-amber-500/20"
           >
+            {lockBanner(marketLocks?.champion)}
             <form className="space-y-3" action={(fd) => saveMarket("champion", fd)}>
               <select
                 name="athleticsId"
                 defaultValue={champion?.athleticsId ?? ""}
-                disabled={!canBet || pending || loadingPlayers}
+                disabled={
+                  !canBet ||
+                  pending ||
+                  loadingPlayers ||
+                  marketLocks?.champion?.locked
+                }
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white"
               >
                 <option value="">
@@ -182,7 +211,7 @@ export function SeasonPicksPanel({
               <Button
                 type="submit"
                 className="w-full"
-                disabled={!canBet || pending}
+                disabled={!canBet || pending || marketLocks?.champion?.locked}
               >
                 {championName ? "Atualizar campeão" : "Salvar campeão"}
               </Button>
@@ -197,6 +226,7 @@ export function SeasonPicksPanel({
             savedLabel={topScorer?.playerName}
             accent="border-emerald-500/20"
           >
+            {lockBanner(marketLocks?.top_scorer)}
             <form
               className="space-y-3"
               action={(fd) => saveMarket("top_scorer", fd)}
@@ -204,7 +234,12 @@ export function SeasonPicksPanel({
               <select
                 name="playerName"
                 defaultValue={topScorer?.playerName ?? ""}
-                disabled={!canBet || pending || loadingPlayers}
+                disabled={
+                  !canBet ||
+                  pending ||
+                  loadingPlayers ||
+                  marketLocks?.top_scorer?.locked
+                }
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white"
               >
                 <option value="">
@@ -224,7 +259,7 @@ export function SeasonPicksPanel({
               <Button
                 type="submit"
                 className="w-full"
-                disabled={!canBet || pending}
+                disabled={!canBet || pending || marketLocks?.top_scorer?.locked}
               >
                 {topScorer?.playerName
                   ? `Atualizar ${isBasketball ? "cestinha" : "artilheiro"}`
@@ -242,6 +277,7 @@ export function SeasonPicksPanel({
               savedLabel={topCards?.playerName}
               accent="border-yellow-500/20"
             >
+              {lockBanner(marketLocks?.top_cards)}
               <form
                 className="space-y-3"
                 action={(fd) => saveMarket("top_cards", fd)}
@@ -249,7 +285,12 @@ export function SeasonPicksPanel({
                 <select
                   name="playerName"
                   defaultValue={topCards?.playerName ?? ""}
-                  disabled={!canBet || pending || loadingPlayers}
+                  disabled={
+                    !canBet ||
+                    pending ||
+                    loadingPlayers ||
+                    marketLocks?.top_cards?.locked
+                  }
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white"
                 >
                   <option value="">
@@ -265,7 +306,7 @@ export function SeasonPicksPanel({
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={!canBet || pending}
+                  disabled={!canBet || pending || marketLocks?.top_cards?.locked}
                 >
                   {topCards?.playerName ? "Atualizar cartões" : "Salvar cartões"}
                 </Button>

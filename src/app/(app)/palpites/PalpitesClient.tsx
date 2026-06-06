@@ -11,20 +11,24 @@ import { RealEntryButton } from "@/components/currency/RealEntryButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { maxMatchPredictionPoints } from "@/lib/scoring-config";
+import { isMatchPredictionOpen } from "@/lib/palpites/match-locks";
 import type { CurrencyMode } from "@/lib/currency/mode";
 import type { MatchWithTeams, MatchPredictionView, SportSlug } from "@/types";
+import type { PalpitesSportFilter } from "@/lib/queries/standings";
 import type { MarketPredictionView } from "@/lib/queries/market-predictions";
 import type { PlayerOption, TeamOption } from "@/lib/queries/palpites-options";
+import type { MarketLockInfo } from "@/lib/palpites/market-locks";
 
 const SERIES = ["A", "B", "C", "D", "E", "F"] as const;
-const sports: { slug: SportSlug; label: string }[] = [
+const sportPills: { slug: PalpitesSportFilter; label: string }[] = [
+  { slug: "all", label: "Todos" },
   { slug: "futsal", label: "Futsal" },
   { slug: "futebol", label: "Futebol" },
   { slug: "basquete", label: "Basquete" },
 ];
 
 interface PalpitesClientProps {
-  sport: SportSlug;
+  sportFilter: PalpitesSportFilter;
   series: (typeof SERIES)[number];
   currencyMode: CurrencyMode;
   totalPoints: number;
@@ -37,10 +41,14 @@ interface PalpitesClientProps {
   upcomingMatches: MatchWithTeams[];
   savedMatchPredictions: { match: MatchWithTeams; prediction: MatchPredictionView }[];
   marketPredictions: MarketPredictionView[];
+  marketLocks: Record<
+    "champion" | "top_scorer" | "top_cards",
+    MarketLockInfo
+  > | null;
 }
 
 export function PalpitesClient({
-  sport,
+  sportFilter,
   series,
   currencyMode,
   totalPoints,
@@ -53,10 +61,13 @@ export function PalpitesClient({
   upcomingMatches,
   savedMatchPredictions,
   marketPredictions,
+  marketLocks,
 }: PalpitesClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isBasketball = sport === "basquete";
+  const isAllSports = sportFilter === "all";
+  const sport = isAllSports ? "futsal" : sportFilter;
+  const isBasketball = !isAllSports && sport === "basquete";
   const [liveTeams, setLiveTeams] = useState(teamOptions);
   const [liveScorers, setLiveScorers] = useState(scorerOptions);
   const [liveCards, setLiveCards] = useState(cardOptions);
@@ -69,6 +80,8 @@ export function PalpitesClient({
   }, [teamOptions, scorerOptions, cardOptions]);
 
   useEffect(() => {
+    if (isAllSports) return;
+
     const needsCards = !isBasketball;
     const hasAllData =
       liveTeams.length > 0 &&
@@ -104,6 +117,7 @@ export function PalpitesClient({
   }, [
     sport,
     series,
+    isAllSports,
     isBasketball,
     liveTeams.length,
     liveCards.length,
@@ -167,14 +181,14 @@ export function PalpitesClient({
       )}
 
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {sports.map((s) => (
+        {sportPills.map((s) => (
           <button
             key={s.slug}
             type="button"
             onClick={() => updateParams("sport", s.slug)}
             className={cn(
               "shrink-0 rounded-full px-4 py-2 text-sm font-semibold",
-              sport === s.slug
+              sportFilter === s.slug
                 ? "accent-bg text-white"
                 : "border border-zinc-700 bg-zinc-900 text-zinc-400"
             )}
@@ -221,9 +235,64 @@ export function PalpitesClient({
 
           <section className="space-y-3">
             <div>
+              <h2 className="text-base font-black text-white">
+                Seus palpites salvos
+              </h2>
+              <p className="text-xs text-zinc-500">
+                {savedMatchPredictions.length} jogo
+                {savedMatchPredictions.length !== 1 ? "s" : ""}
+                {isAllSports ? " · todas modalidades" : ""} · série {series}
+              </p>
+            </div>
+
+            {savedMatchPredictions.length === 0 ? (
+              <p className="py-4 text-center text-sm text-zinc-500">
+                Nenhum palpite de jogo salvo ainda.
+              </p>
+            ) : (
+              savedMatchPredictions.map(({ match, prediction }) => {
+                const matchSport = match.sport.slug as SportSlug;
+                const open = isMatchPredictionOpen({
+                  status: match.status,
+                  scheduledAt: match.scheduledAt,
+                });
+                return (
+                  <div
+                    key={match.id}
+                    className="space-y-3 rounded-2xl border border-[#006b3f]/30 bg-[#006b3f]/5 p-4"
+                  >
+                    <MatchCard match={match} compact />
+                    {canBet && open.open ? (
+                      <MatchPredictionForm
+                        matchId={match.id}
+                        sportSlug={matchSport}
+                        homeTeamName={match.homeTeam.name}
+                        awayTeamName={match.awayTeam.name}
+                        matchStatus={match.status}
+                        scheduledAt={match.scheduledAt}
+                        existingPrediction={prediction}
+                        variant="inline"
+                      />
+                    ) : (
+                      <SavedPredictionSummary
+                        match={match}
+                        prediction={prediction}
+                        closedMessage={open.open ? undefined : open.message}
+                      />
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </section>
+
+          <section className="space-y-3 border-t border-zinc-800 pt-6">
+            <div>
               <h2 className="text-base font-black text-white">Próximos jogos</h2>
               <p className="text-xs text-zinc-500">
-                Até {maxMatchPredictionPoints(sport)} pts por partida
+                {isAllSports
+                  ? "Jogos sem palpite · todas modalidades"
+                  : `Até ${maxMatchPredictionPoints(sport)} pts por partida`}
               </p>
             </div>
 
@@ -233,67 +302,34 @@ export function PalpitesClient({
               </p>
             )}
 
-            {upcomingWithoutSaved.map((match) => (
-              <div
-                key={match.id}
-                className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4"
-              >
-                <MatchCard match={match} compact />
-                {canBet ? (
-                  <MatchPredictionForm
-                    matchId={match.id}
-                    sportSlug={sport}
-                    homeTeamName={match.homeTeam.name}
-                    awayTeamName={match.awayTeam.name}
-                    matchStatus={match.status}
-                    variant="inline"
-                  />
-                ) : null}
-              </div>
-            ))}
-          </section>
-
-          <section className="space-y-3 border-t border-zinc-800 pt-6">
-            <div>
-              <h2 className="text-base font-black text-white">
-                Seus palpites salvos
-              </h2>
-              <p className="text-xs text-zinc-500">
-                {savedMatchPredictions.length} jogo
-                {savedMatchPredictions.length !== 1 ? "s" : ""} nesta série
-              </p>
-            </div>
-
-            {savedMatchPredictions.length === 0 ? (
-              <p className="py-4 text-center text-sm text-zinc-500">
-                Nenhum palpite de jogo salvo ainda.
-              </p>
-            ) : (
-              savedMatchPredictions.map(({ match, prediction }) => (
+            {upcomingWithoutSaved.map((match) => {
+              const matchSport = match.sport.slug as SportSlug;
+              const open = isMatchPredictionOpen({
+                status: match.status,
+                scheduledAt: match.scheduledAt,
+              });
+              return (
                 <div
                   key={match.id}
-                  className="space-y-3 rounded-2xl border border-[#006b3f]/30 bg-[#006b3f]/5 p-4"
+                  className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4"
                 >
                   <MatchCard match={match} compact />
-                  {canBet ? (
+                  {canBet && open.open ? (
                     <MatchPredictionForm
                       matchId={match.id}
-                      sportSlug={sport}
+                      sportSlug={matchSport}
                       homeTeamName={match.homeTeam.name}
                       awayTeamName={match.awayTeam.name}
                       matchStatus={match.status}
-                      existingPrediction={prediction}
+                      scheduledAt={match.scheduledAt}
                       variant="inline"
                     />
-                  ) : (
-                    <SavedPredictionSummary
-                      match={match}
-                      prediction={prediction}
-                    />
-                  )}
+                  ) : canBet && !open.open ? (
+                    <p className="text-xs text-zinc-500">{open.message}</p>
+                  ) : null}
                 </div>
-              ))
-            )}
+              );
+            })}
           </section>
         </TabsContent>
 
@@ -301,6 +337,10 @@ export function PalpitesClient({
           {!isLoggedIn ? (
             <p className="text-sm text-zinc-400">
               Faça login para palpitar na temporada.
+            </p>
+          ) : isAllSports ? (
+            <p className="rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-6 text-center text-sm text-zinc-400">
+              Selecione Futsal, Futebol ou Basquete para palpitar na temporada.
             </p>
           ) : (
             <SeasonPicksPanel
@@ -312,6 +352,7 @@ export function PalpitesClient({
               teamOptions={liveTeams}
               scorerOptions={liveScorers}
               cardOptions={liveCards}
+              marketLocks={marketLocks ?? undefined}
               {...(champion ? { champion } : {})}
               {...(topScorer ? { topScorer } : {})}
               {...(topCards ? { topCards } : {})}
@@ -326,9 +367,11 @@ export function PalpitesClient({
 function SavedPredictionSummary({
   match,
   prediction,
+  closedMessage,
 }: {
   match: MatchWithTeams;
   prediction: MatchPredictionView;
+  closedMessage?: string;
 }) {
   const winner =
     prediction.result === "home"
@@ -338,35 +381,40 @@ function SavedPredictionSummary({
         : "Empate";
 
   return (
-    <div className="grid gap-2 rounded-lg bg-zinc-900/60 p-3 text-sm sm:grid-cols-2">
-      <p>
-        <span className="text-zinc-400">Vencedor:</span>{" "}
-        <span className="text-white">{winner}</span>
-      </p>
-      {prediction.homeScore != null && prediction.awayScore != null && (
-        <p>
-          <span className="text-zinc-400">Placar:</span>{" "}
-          <span className="text-white">
-            {prediction.homeScore} × {prediction.awayScore}
-          </span>
-        </p>
+    <div className="space-y-2">
+      {closedMessage && (
+        <p className="text-xs text-amber-400">{closedMessage}</p>
       )}
-      {prediction.homeFouls != null && (
+      <div className="grid gap-2 rounded-lg bg-zinc-900/60 p-3 text-sm sm:grid-cols-2">
         <p>
-          <span className="text-zinc-400">Faltas:</span>{" "}
-          <span className="text-white">
-            {prediction.homeFouls} / {prediction.awayFouls ?? "—"}
-          </span>
+          <span className="text-zinc-400">Vencedor:</span>{" "}
+          <span className="text-white">{winner}</span>
         </p>
-      )}
-      {prediction.homeCards != null && (
-        <p>
-          <span className="text-zinc-400">Cartões:</span>{" "}
-          <span className="text-white">
-            {prediction.homeCards} / {prediction.awayCards ?? "—"}
-          </span>
-        </p>
-      )}
+        {prediction.homeScore != null && prediction.awayScore != null && (
+          <p>
+            <span className="text-zinc-400">Placar:</span>{" "}
+            <span className="text-white">
+              {prediction.homeScore} × {prediction.awayScore}
+            </span>
+          </p>
+        )}
+        {prediction.homeFouls != null && (
+          <p>
+            <span className="text-zinc-400">Faltas:</span>{" "}
+            <span className="text-white">
+              {prediction.homeFouls} / {prediction.awayFouls ?? "—"}
+            </span>
+          </p>
+        )}
+        {prediction.homeCards != null && (
+          <p>
+            <span className="text-zinc-400">Cartões:</span>{" "}
+            <span className="text-white">
+              {prediction.homeCards} / {prediction.awayCards ?? "—"}
+            </span>
+          </p>
+        )}
+      </div>
     </div>
   );
 }

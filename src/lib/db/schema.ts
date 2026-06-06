@@ -343,6 +343,8 @@ export const marketPredictions = pgTable(
     stakeAmount: integer("stake_amount").default(100).notNull(),
     pointsEarned: integer("points_earned"),
     isScored: boolean("is_scored").default(false).notNull(),
+    isLocked: boolean("is_locked").default(false).notNull(),
+    lockReason: varchar("lock_reason", { length: 32 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [

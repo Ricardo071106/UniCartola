@@ -5,6 +5,7 @@ import { MatchCard } from "@/components/match/MatchCard";
 import { MatchPredictionForm } from "@/components/prediction/MatchPredictionForm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { isMatchPredictionOpen } from "@/lib/palpites/match-locks";
 import type { MatchWithTeams, MatchPredictionView, SportSlug } from "@/types";
 
 const sports: { slug: SportSlug | "all"; label: string }[] = [
@@ -99,11 +100,12 @@ export function JogosClient({
             {initialMatches.map((m) => {
               const existing = matchPredictions[m.id];
               const sportSlug = m.sport.slug as SportSlug;
+              const matchOpen = isMatchPredictionOpen({
+                status: m.status,
+                scheduledAt: m.scheduledAt,
+              });
               const openForBet =
-                showPredictions &&
-                isLoggedIn &&
-                canBet &&
-                m.status === "scheduled";
+                showPredictions && isLoggedIn && canBet && matchOpen.open;
 
               return (
                 <div key={m.id} className="space-y-3">
@@ -115,9 +117,13 @@ export function JogosClient({
                       homeTeamName={m.homeTeam.name}
                       awayTeamName={m.awayTeam.name}
                       matchStatus={m.status}
+                      scheduledAt={m.scheduledAt}
                       existingPrediction={existing ?? null}
                       variant="inline"
                     />
+                  )}
+                  {showPredictions && isLoggedIn && canBet && !matchOpen.open && (
+                    <p className="text-xs text-zinc-500">{matchOpen.message}</p>
                   )}
                   {showPredictions && isLoggedIn && !canBet && (
                     <p className="text-xs text-amber-400">

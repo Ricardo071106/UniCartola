@@ -114,6 +114,7 @@ export default async function PartidaPage({
         homeShortName={match.homeTeam.name}
         awayShortName={match.awayTeam.name}
         matchStatus={match.status}
+        scheduledAt={match.scheduledAt}
         existingPrediction={prediction ? predictionToView(prediction) : null}
       />
     </div>

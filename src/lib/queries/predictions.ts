@@ -2,7 +2,7 @@ import { requireDb } from "@/lib/db";
 import { predictions, matches, sports } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import type { CurrencyMode } from "@/lib/currency/mode";
-import type { SportSlug } from "@/types";
+import type { PalpitesSportFilter } from "./standings";
 import { enrichMatches } from "./matches";
 import type { MatchPredictionView } from "@/types";
 
@@ -65,30 +65,35 @@ export function predictionToView(
 
 export async function getUserSavedMatchPredictions(
   userId: string,
-  sportSlug: SportSlug,
+  sportSlug: PalpitesSportFilter,
   series: string,
   currencyMode: CurrencyMode
 ) {
   const db = requireDb();
-  const [sportRow] = await db
-    .select()
-    .from(sports)
-    .where(eq(sports.slug, sportSlug))
-    .limit(1);
-  if (!sportRow) return [];
+
+  let sportId: string | null = null;
+  if (sportSlug !== "all") {
+    const [sportRow] = await db
+      .select()
+      .from(sports)
+      .where(eq(sports.slug, sportSlug))
+      .limit(1);
+    if (!sportRow) return [];
+    sportId = sportRow.id;
+  }
+
+  const conditions = [
+    eq(predictions.userId, userId),
+    eq(predictions.currencyMode, currencyMode),
+    eq(matches.series, series),
+  ];
+  if (sportId) conditions.push(eq(matches.sportId, sportId));
 
   const rows = await db
     .select({ prediction: predictions, match: matches })
     .from(predictions)
     .innerJoin(matches, eq(predictions.matchId, matches.id))
-    .where(
-      and(
-        eq(predictions.userId, userId),
-        eq(predictions.currencyMode, currencyMode),
-        eq(matches.sportId, sportRow.id),
-        eq(matches.series, series)
-      )
-    );
+    .where(and(...conditions));
 
   if (rows.length === 0) return [];
 

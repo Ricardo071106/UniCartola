@@ -6,6 +6,7 @@ import { predictions, matches, users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { getCurrencyMode } from "@/lib/currency/server";
 import { requireRealEntryPaid } from "@/lib/currency/real-entry";
+import { isMatchPredictionOpen } from "@/lib/palpites/match-locks";
 import { and, eq, sql } from "drizzle-orm";
 import type { PredictionResult } from "@/types";
 
@@ -34,8 +35,13 @@ export async function submitPrediction(data: {
       .limit(1);
 
     if (!match) return { error: "Partida não encontrada" };
-    if (match.status === "finished" || match.status === "live") {
-      return { error: "Palpites encerrados para esta partida" };
+
+    const open = isMatchPredictionOpen({
+      status: match.status,
+      scheduledAt: match.scheduledAt,
+    });
+    if (!open.open) {
+      return { error: open.message ?? "Palpites encerrados para esta partida" };
     }
 
     const existing = await db

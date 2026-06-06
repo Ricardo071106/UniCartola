@@ -6,6 +6,7 @@ import { marketPredictions, sports } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { getCurrencyMode } from "@/lib/currency/server";
 import { requireRealEntryPaid } from "@/lib/currency/real-entry";
+import { evaluateMarketLock } from "@/lib/palpites/market-locks";
 import { and, eq } from "drizzle-orm";
 import type { SportSlug } from "@/types";
 import type { SeriesLetter } from "@/lib/queries/standings";
@@ -56,6 +57,35 @@ export async function submitMarketPrediction(data: {
         )
       )
       .limit(1);
+
+    if (existing[0]?.isLocked) {
+      return {
+        error:
+          "Palpite bloqueado — time ou jogador eliminado no mata-mata (aposta perdida)",
+      };
+    }
+
+    const lock = await evaluateMarketLock(
+      data.sportSlug,
+      data.series,
+      data.marketType,
+      data.athleticsId,
+      data.playerName?.trim()
+    );
+
+    if (lock.locked) {
+      if (lock.reason === "eliminated" && existing[0]) {
+        await db
+          .update(marketPredictions)
+          .set({
+            isLocked: true,
+            lockReason: "eliminated",
+            pointsEarned: 0,
+          })
+          .where(eq(marketPredictions.id, existing[0].id));
+      }
+      return { error: lock.message ?? "Palpite temporariamente bloqueado" };
+    }
 
     if (!existing.length) {
       await db.insert(marketPredictions).values({

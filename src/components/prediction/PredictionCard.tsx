@@ -12,6 +12,7 @@ interface PredictionCardProps {
   awayShortName: string;
   existingPrediction?: MatchPredictionView | null;
   matchStatus: string;
+  scheduledAt: Date | string;
 }
 
 export function PredictionCard({
@@ -21,6 +22,7 @@ export function PredictionCard({
   awayShortName,
   existingPrediction,
   matchStatus,
+  scheduledAt,
 }: PredictionCardProps) {
   return (
     <Card>
@@ -31,6 +33,7 @@ export function PredictionCard({
           homeTeamName={homeShortName}
           awayTeamName={awayShortName}
           matchStatus={matchStatus}
+          scheduledAt={scheduledAt}
           existingPrediction={existingPrediction}
           variant="card"
         />

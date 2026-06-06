@@ -31,6 +31,14 @@ export function parseSport(value?: string | null): SportSlug {
     : "futsal";
 }
 
+export type PalpitesSportFilter = SportSlug | "all";
+
+export function parsePalpitesSport(value?: string | null): PalpitesSportFilter {
+  const candidate = (value?.trim() || "futsal").toLowerCase();
+  if (candidate === "all" || candidate === "todos") return "all";
+  return parseSport(candidate);
+}
+
 export async function getStandingsBySeries(
   sportSlug: SportSlug,
   series: SeriesLetter
