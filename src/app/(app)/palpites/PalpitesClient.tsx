@@ -154,6 +154,29 @@ export function PalpitesClient({
   const isRealMode = currencyMode === "real";
   const canBet = isLoggedIn && (!isRealMode || realEntryPaid);
 
+  const savedMatchEntries = upcomingMatches
+    .filter((m) => matchPredictions[m.id])
+    .map((m) => ({
+      match: m,
+      prediction: matchPredictions[m.id]!,
+    }));
+
+  const hasSavedMarket =
+    Boolean(champion?.athleticsName || champion?.athleticsId) ||
+    Boolean(topScorer?.playerName) ||
+    Boolean(topCards?.playerName);
+  const hasSavedMatches = savedMatchEntries.length > 0;
+
+  const resultLabel = (
+    result: PredictionResult,
+    home: string,
+    away: string
+  ) => {
+    if (result === "home") return home;
+    if (result === "away") return away;
+    return "Empate";
+  };
+
   function updateParams(key: string, value: string) {
     const p = new URLSearchParams(searchParams.toString());
     p.set(key, value);
@@ -243,144 +266,6 @@ export function PalpitesClient({
         ))}
       </div>
 
-      <section className="cartola-card space-y-4 p-4">
-        <div>
-          <h2 className="text-base font-black text-white">Palpites da temporada</h2>
-          <p className="text-xs text-zinc-500">
-            Campeão, {isBasketball ? "pontuador" : "artilheiro"}
-            {!isBasketball && " e cartões"} · dados NDU
-          </p>
-        </div>
-
-        {!isLoggedIn && (
-          <p className="text-sm text-zinc-400">
-            Faça login para registrar palpites.
-          </p>
-        )}
-
-        <form
-          className="space-y-2"
-          action={(fd) => saveMarket("champion", fd)}
-        >
-          <label className="text-xs font-semibold text-zinc-400">
-            Campeão da série {series}
-          </label>
-          <select
-            key={`teams-${sport}-${series}-${liveTeams.length}`}
-            name="athleticsId"
-            defaultValue={champion?.athleticsId ?? ""}
-            disabled={!canBet || pending || loadingPlayers}
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
-          >
-            <option value="">
-              {loadingPlayers ? "Carregando times..." : "Selecione o time"}
-            </option>
-            {liveTeams.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-          {liveTeams.length === 0 && !loadingPlayers && (
-            <p className="text-xs text-zinc-500">
-              Nenhum time nesta série em{" "}
-              <a
-                href="https://www.ndu.com.br/estatisticas"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                ndu.com.br/estatisticas
-              </a>{" "}
-              ainda.
-            </p>
-          )}
-          <Button type="submit" size="sm" disabled={!canBet || pending}>
-            Salvar campeão
-          </Button>
-        </form>
-
-        <form
-          className="space-y-2"
-          action={(fd) => saveMarket("top_scorer", fd)}
-        >
-          <label className="text-xs font-semibold text-zinc-400">
-            {isBasketball ? "Maior pontuador" : "Artilheiro"}
-          </label>
-          <PlayerSelect
-            key={`scorer-${sport}-${series}-${liveScorers.length}`}
-            name="playerName"
-            options={liveScorers}
-            defaultValue={topScorer?.playerName}
-            disabled={!canBet || pending || loadingPlayers}
-            placeholder={
-              loadingPlayers
-                ? "Carregando jogadores..."
-                : isBasketball
-                  ? "Selecione o pontuador"
-                  : "Selecione o artilheiro"
-            }
-          />
-          {liveScorers.length === 0 && !loadingPlayers && (
-            <p className="text-xs text-zinc-500">
-              Nenhum jogador nesta série em{" "}
-              <a
-                href="https://www.ndu.com.br/estatisticas"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                ndu.com.br/estatisticas
-              </a>{" "}
-              ainda.
-            </p>
-          )}
-          <Button type="submit" size="sm" disabled={!canBet || pending}>
-            Salvar {isBasketball ? "pontuador" : "artilheiro"}
-          </Button>
-        </form>
-
-        {!isBasketball && (
-          <form
-            className="space-y-2"
-            action={(fd) => saveMarket("top_cards", fd)}
-          >
-            <label className="text-xs font-semibold text-zinc-400">
-              Mais cartões
-            </label>
-            <PlayerSelect
-              key={`cards-${sport}-${series}-${liveCards.length}`}
-              name="playerName"
-              options={liveCards}
-              defaultValue={topCards?.playerName}
-              disabled={!canBet || pending || loadingPlayers}
-              placeholder={
-                loadingPlayers
-                  ? "Carregando jogadores..."
-                  : "Selecione o jogador"
-              }
-            />
-            {liveCards.length === 0 && !loadingPlayers && (
-              <p className="text-xs text-zinc-500">
-                Nenhum jogador com cartão nesta série em{" "}
-                <a
-                  href="https://www.ndu.com.br/estatisticas"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline"
-                >
-                  ndu.com.br/estatisticas
-                </a>{" "}
-                ainda.
-              </p>
-            )}
-            <Button type="submit" size="sm" disabled={!canBet || pending}>
-              Salvar cartões
-            </Button>
-          </form>
-        )}
-      </section>
-
       <section className="space-y-3">
         <div>
           <h2 className="text-base font-black text-white">Jogos futuros</h2>
@@ -397,24 +282,209 @@ export function PalpitesClient({
           </p>
         )}
 
-        {upcomingMatches.map((match) => (
-          <div key={match.id} className="space-y-3">
-            <MatchCard match={match} compact />
-            {canBet ? (
-              <PredictionCard
-                matchId={match.id}
-                homeShortName={match.homeTeam.name}
-                awayShortName={match.awayTeam.name}
-                matchStatus={match.status}
-                existingPrediction={matchPredictions[match.id] ?? null}
-              />
-            ) : isLoggedIn && isRealMode && !realEntryPaid ? (
-              <p className="text-xs text-amber-400">
-                Pague a inscrição para palpitar neste jogo no modo real.
+        {upcomingMatches.map((match) => {
+          const hasSaved = Boolean(matchPredictions[match.id]);
+          return (
+            <div key={match.id} className="space-y-3">
+              <MatchCard match={match} compact />
+              {canBet && !hasSaved ? (
+                <PredictionCard
+                  matchId={match.id}
+                  homeShortName={match.homeTeam.name}
+                  awayShortName={match.awayTeam.name}
+                  matchStatus={match.status}
+                  existingPrediction={null}
+                />
+              ) : canBet && hasSaved ? (
+                <p className="text-xs text-zinc-500">
+                  Palpite salvo — veja em &quot;Seus palpites salvos&quot; abaixo.
+                </p>
+              ) : isLoggedIn && isRealMode && !realEntryPaid ? (
+                <p className="text-xs text-amber-400">
+                  Pague a inscrição para palpitar neste jogo no modo real.
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
+      </section>
+
+      <section className="cartola-card space-y-4 border border-[#006b3f]/30 p-4">
+        <div>
+          <h2 className="text-base font-black text-white">Seus palpites salvos</h2>
+          <p className="text-xs text-zinc-500">
+            {sports.find((s) => s.slug === sport)?.label} · Série {series}
+            {isRealMode ? " · modo real" : " · modo fichas"}
+          </p>
+        </div>
+
+        {!isLoggedIn && (
+          <p className="text-sm text-zinc-400">
+            Faça login para registrar e ver seus palpites.
+          </p>
+        )}
+
+        {isLoggedIn && (
+          <>
+            <div className="space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Temporada
               </p>
-            ) : null}
-          </div>
-        ))}
+
+              {hasSavedMarket && (
+                <div className="space-y-1 rounded-lg bg-zinc-900/60 p-3 text-sm">
+                  {(champion?.athleticsName || champion?.athleticsId) && (
+                    <p className="text-white">
+                      <span className="text-zinc-400">Campeão:</span>{" "}
+                      {champion?.athleticsName ??
+                        liveTeams.find((t) => t.id === champion?.athleticsId)
+                          ?.name ??
+                        "—"}
+                    </p>
+                  )}
+                  {topScorer?.playerName && (
+                    <p className="text-white">
+                      <span className="text-zinc-400">
+                        {isBasketball ? "Pontuador" : "Artilheiro"}:
+                      </span>{" "}
+                      {topScorer.playerName}
+                    </p>
+                  )}
+                  {!isBasketball && topCards?.playerName && (
+                    <p className="text-white">
+                      <span className="text-zinc-400">Cartões:</span>{" "}
+                      {topCards.playerName}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <form
+                className="space-y-2"
+                action={(fd) => saveMarket("champion", fd)}
+              >
+                <label className="text-xs font-semibold text-zinc-400">
+                  Campeão da série {series}
+                </label>
+                <select
+                  key={`teams-${sport}-${series}-${liveTeams.length}`}
+                  name="athleticsId"
+                  defaultValue={champion?.athleticsId ?? ""}
+                  disabled={!canBet || pending || loadingPlayers}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                >
+                  <option value="">
+                    {loadingPlayers ? "Carregando times..." : "Selecione o time"}
+                  </option>
+                  {liveTeams.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                <Button type="submit" size="sm" disabled={!canBet || pending}>
+                  {champion ? "Atualizar campeão" : "Salvar campeão"}
+                </Button>
+              </form>
+
+              <form
+                className="space-y-2"
+                action={(fd) => saveMarket("top_scorer", fd)}
+              >
+                <label className="text-xs font-semibold text-zinc-400">
+                  {isBasketball ? "Maior pontuador" : "Artilheiro"}
+                </label>
+                <PlayerSelect
+                  key={`scorer-${sport}-${series}-${liveScorers.length}`}
+                  name="playerName"
+                  options={liveScorers}
+                  defaultValue={topScorer?.playerName}
+                  disabled={!canBet || pending || loadingPlayers}
+                  placeholder={
+                    loadingPlayers
+                      ? "Carregando jogadores..."
+                      : isBasketball
+                        ? "Selecione o pontuador"
+                        : "Selecione o artilheiro"
+                  }
+                />
+                <Button type="submit" size="sm" disabled={!canBet || pending}>
+                  {topScorer
+                    ? `Atualizar ${isBasketball ? "pontuador" : "artilheiro"}`
+                    : `Salvar ${isBasketball ? "pontuador" : "artilheiro"}`}
+                </Button>
+              </form>
+
+              {!isBasketball && (
+                <form
+                  className="space-y-2"
+                  action={(fd) => saveMarket("top_cards", fd)}
+                >
+                  <label className="text-xs font-semibold text-zinc-400">
+                    Mais cartões
+                  </label>
+                  <PlayerSelect
+                    key={`cards-${sport}-${series}-${liveCards.length}`}
+                    name="playerName"
+                    options={liveCards}
+                    defaultValue={topCards?.playerName}
+                    disabled={!canBet || pending || loadingPlayers}
+                    placeholder={
+                      loadingPlayers
+                        ? "Carregando jogadores..."
+                        : "Selecione o jogador"
+                    }
+                  />
+                  <Button type="submit" size="sm" disabled={!canBet || pending}>
+                    {topCards ? "Atualizar cartões" : "Salvar cartões"}
+                  </Button>
+                </form>
+              )}
+            </div>
+
+            {hasSavedMatches ? (
+              <div className="space-y-3 border-t border-zinc-800 pt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Jogos
+                </p>
+                {savedMatchEntries.map(({ match, prediction }) => (
+                  <div key={match.id} className="space-y-3">
+                    <MatchCard match={match} compact />
+                    {canBet ? (
+                      <PredictionCard
+                        matchId={match.id}
+                        homeShortName={match.homeTeam.name}
+                        awayShortName={match.awayTeam.name}
+                        matchStatus={match.status}
+                        existingPrediction={prediction}
+                      />
+                    ) : (
+                      <div className="rounded-lg bg-zinc-900/60 px-3 py-2 text-sm text-white">
+                        <span className="text-zinc-400">Palpite:</span>{" "}
+                        {resultLabel(
+                          prediction.result,
+                          match.homeTeam.name,
+                          match.awayTeam.name
+                        )}
+                        {prediction.homeScore != null &&
+                          prediction.awayScore != null && (
+                            <span className="text-zinc-400">
+                              {" "}
+                              · {prediction.homeScore}×{prediction.awayScore}
+                            </span>
+                          )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="border-t border-zinc-800 pt-4 text-xs text-zinc-500">
+                Nenhum palpite de jogo salvo nesta série ainda.
+              </p>
+            )}
+          </>
+        )}
       </section>
     </div>
   );

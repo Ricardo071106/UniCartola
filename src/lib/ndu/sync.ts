@@ -385,6 +385,7 @@ async function ingestMatchRows(
     isBasketball: boolean;
   }[] = [];
 
+  let processed = 0;
   for (const row of allRows) {
     const slug = modalityToSportSlug(row.modality);
     if (!slug || !["futebol", "futsal", "basquete"].includes(slug)) continue;
@@ -394,6 +395,10 @@ async function ingestMatchRows(
 
     try {
       const result = await upsertMatchRow(row, sport.id, slug, year, seasonId);
+      processed++;
+      if (processed % 100 === 0) {
+        console.log(`[ndu] Jogos processados: ${processed}/${allRows.length}`);
+      }
       if (result.created) totalCreated++;
       if (result.updated) totalUpdated++;
 
@@ -521,7 +526,9 @@ export async function runFullScrape(options: ScrapeOptions = {}) {
     scorersSynced += ingest.scorersSynced;
 
     try {
+      console.log("[ndu] Sincronizando artilheiros e cartões...");
       statsSynced = await syncNduStats();
+      console.log(`[ndu] Estatísticas: ${statsSynced} registros`);
     } catch (e) {
       errors.push(`stats: ${e instanceof Error ? e.message : String(e)}`);
     }
