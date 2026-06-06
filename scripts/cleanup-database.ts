@@ -97,7 +97,9 @@ async function report(db: ReturnType<typeof drizzle<typeof schema>>) {
   console.log(
     `  Estatísticas NDU fora de ${counts.activeYear} a remover: ${counts.oldStats}`
   );
-  console.log(`  Atléticas demo a remover: ${counts.demoAthletics}`);
+  console.log(
+    `  Atléticas em universidades demo (mover/apagar): ${counts.demoAthletics}`
+  );
   console.log(
     `  Universidades demo a remover: ${counts.demoUniIds.length} (${SEED_UNIVERSITY_SHORT_NAMES.join(", ")})`
   );

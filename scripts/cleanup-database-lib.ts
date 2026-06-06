@@ -38,6 +38,26 @@ import {
 import { getCurrentStatsYear } from "../src/lib/ndu/stats-period";
 import { normalizeTeamName } from "../src/lib/ndu/normalize";
 
+async function ensureNduUniversity(db: ReturnType<typeof requireDb>) {
+  const [existing] = await db
+    .select()
+    .from(universities)
+    .where(eq(universities.shortName, "NDU"))
+    .limit(1);
+  if (existing) return existing;
+
+  const [created] = await db
+    .insert(universities)
+    .values({
+      name: "NDU — Times Universitários",
+      shortName: "NDU",
+      city: "São Paulo",
+    })
+    .returning();
+  console.log("[cleanup] Universidade NDU criada (placeholder para atléticas reais)");
+  return created;
+}
+
 async function detachDemoAthleticsFromMatches(
   db: ReturnType<typeof requireDb>,
   demoAthleticIds: string[]
@@ -182,12 +202,9 @@ export async function getCleanupCounts(db: ReturnType<typeof requireDb>) {
     .select({ count: sql<number>`count(*)::int` })
     .from(athletics)
     .where(
-      and(
-        isNull(athletics.nduAthleticId),
-        demoUniIds.length
-          ? inArray(athletics.universityId, demoUniIds)
-          : sql`false`
-      )
+      demoUniIds.length
+        ? inArray(athletics.universityId, demoUniIds)
+        : sql`false`
     );
 
   const [nduMatches] = await db
@@ -277,53 +294,38 @@ export async function cleanupDemoData(db: ReturnType<typeof requireDb>) {
   }
 
   if (demoUniIds.length) {
-    const [nduPlaceholder] = await db
-      .select()
-      .from(universities)
-      .where(eq(universities.shortName, "NDU"))
-      .limit(1);
-    const fallbackUni =
-      nduPlaceholder ??
-      (
-        await db
-          .select()
-          .from(universities)
-          .where(notInArray(universities.id, demoUniIds))
-          .limit(1)
-      )[0];
+    const fallbackUni = await ensureNduUniversity(db);
 
-    if (fallbackUni) {
-      const movedAth = await db
-        .update(athletics)
-        .set({ universityId: fallbackUni.id })
-        .where(
-          and(
-            inArray(athletics.universityId, demoUniIds),
-            isNotNull(athletics.nduAthleticId)
-          )
+    const movedAth = await db
+      .update(athletics)
+      .set({ universityId: fallbackUni.id })
+      .where(
+        and(
+          inArray(athletics.universityId, demoUniIds),
+          isNotNull(athletics.nduAthleticId)
         )
-        .returning({ id: athletics.id });
-      if (movedAth.length) {
-        console.log(
-          `[cleanup] ${movedAth.length} atlética(s) NDU movida(s) para ${fallbackUni.shortName}`
-        );
-      }
+      )
+      .returning({ id: athletics.id });
+    if (movedAth.length) {
+      console.log(
+        `[cleanup] ${movedAth.length} atlética(s) NDU movida(s) para ${fallbackUni.shortName}`
+      );
+    }
 
-      const movedHome = await db
-        .update(matches)
-        .set({ homeUniversityId: fallbackUni.id })
-        .where(inArray(matches.homeUniversityId, demoUniIds))
-        .returning({ id: matches.id });
-      const movedAway = await db
-        .update(matches)
-        .set({ awayUniversityId: fallbackUni.id })
-        .where(inArray(matches.awayUniversityId, demoUniIds))
-        .returning({ id: matches.id });
-      if (movedHome.length || movedAway.length) {
-        console.log(
-          `[cleanup] Jogos NDU reassociados à universidade ${fallbackUni.shortName}`
-        );
-      }
+    const movedHome = await db
+      .update(matches)
+      .set({ homeUniversityId: fallbackUni.id })
+      .where(inArray(matches.homeUniversityId, demoUniIds))
+      .returning({ id: matches.id });
+    const movedAway = await db
+      .update(matches)
+      .set({ awayUniversityId: fallbackUni.id })
+      .where(inArray(matches.awayUniversityId, demoUniIds))
+      .returning({ id: matches.id });
+    if (movedHome.length || movedAway.length) {
+      console.log(
+        `[cleanup] Jogos NDU reassociados à universidade ${fallbackUni.shortName}`
+      );
     }
 
     const realUsersOnDemoUni = await db
@@ -395,6 +397,32 @@ export async function cleanupDemoData(db: ReturnType<typeof requireDb>) {
       console.log(`[cleanup] Removidos ${removedCourses.length} cursos demo`);
     }
 
+    const remainingAthletics = await db
+      .select({ id: athletics.id })
+      .from(athletics)
+      .where(inArray(athletics.universityId, demoUniIds));
+    if (remainingAthletics.length) {
+      const orphanIds = remainingAthletics.map((r) => r.id);
+      await detachDemoAthleticsFromMatches(db, orphanIds);
+      await db
+        .update(users)
+        .set({ athleticsId: null })
+        .where(inArray(users.athleticsId, orphanIds));
+      await db
+        .delete(teamMappingQueue)
+        .where(inArray(teamMappingQueue.suggestedAthleticsId, orphanIds));
+      await db
+        .delete(marketPredictions)
+        .where(inArray(marketPredictions.athleticsId, orphanIds));
+      const removedOrphans = await db
+        .delete(athletics)
+        .where(inArray(athletics.id, orphanIds))
+        .returning({ id: athletics.id });
+      console.log(
+        `[cleanup] Removidas ${removedOrphans.length} atléticas órfãs restantes em universidades demo`
+      );
+    }
+
     const removedUnis = await db
       .delete(universities)
       .where(inArray(universities.id, demoUniIds))
@@ -404,19 +432,7 @@ export async function cleanupDemoData(db: ReturnType<typeof requireDb>) {
     }
   }
 
-  const [nduUni] = await db
-    .select()
-    .from(universities)
-    .where(eq(universities.shortName, "NDU"))
-    .limit(1);
-  if (!nduUni) {
-    await db.insert(universities).values({
-      name: "NDU — Times Universitários",
-      shortName: "NDU",
-      city: "São Paulo",
-    });
-    console.log("[cleanup] Universidade placeholder NDU recriada");
-  }
+  await ensureNduUniversity(db);
 
   const [activeSeason] = await db
     .select()
