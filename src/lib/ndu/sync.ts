@@ -26,150 +26,267 @@ type ResolvedTeam = {
   teamName: string;
 };
 
-async function resolveTeam(
-  rawName: string,
-  logoUrl?: string
-): Promise<ResolvedTeam> {
-  const { normalizeTeamName, athleticIdFromLogoUrl } = await import("./parser");
-  const db = requireDb();
-  const normalized = normalizeTeamName(rawName);
+type AthleticRow = typeof athletics.$inferSelect;
+type MatchRow = typeof matches.$inferSelect;
 
-  const allAthletics = await db.select().from(athletics);
+/** Cache em memória — evita recarregar atléticas/jogos a cada partida (569+ queries). */
+class NduSyncContext {
+  athletics: AthleticRow[] = [];
+  athleticsByNduId = new Map<number, AthleticRow>();
+  athleticsByNormalized = new Map<string, AthleticRow>();
+  fallbackUniId: string | null = null;
+  matchesByExternalKey = new Map<string, MatchRow>();
+  matchesBySportId = new Map<string, MatchRow[]>();
+  teamCache = new Map<string, ResolvedTeam>();
+  normalizeTeamName!: (name: string) => string;
 
-  const nduId = athleticIdFromLogoUrl(logoUrl);
-  if (nduId) {
-    const byNduId = allAthletics.find(
-      (a) => a.nduAthleticId === parseInt(nduId, 10)
-    );
-    if (byNduId) {
-      const bestLogo = byNduId.logoUrl ?? logoUrl;
-      if (bestLogo && byNduId.logoUrl !== bestLogo) {
+  async init() {
+    const { normalizeTeamName } = await import("./parser");
+    this.normalizeTeamName = normalizeTeamName;
+    const db = requireDb();
+
+    this.athletics = await db.select().from(athletics);
+    for (const a of this.athletics) {
+      if (a.nduAthleticId != null) {
+        this.athleticsByNduId.set(a.nduAthleticId, a);
+      }
+      if (a.normalizedName) {
+        this.athleticsByNormalized.set(a.normalizedName, a);
+      }
+    }
+
+    const [fallbackUni] = await db.select().from(universities).limit(1);
+    if (!fallbackUni) throw new Error("No universities in database");
+    this.fallbackUniId = fallbackUni.id;
+
+    const allMatches = await db.select().from(matches);
+    for (const m of allMatches) {
+      if (m.externalKey) this.matchesByExternalKey.set(m.externalKey, m);
+      const list = this.matchesBySportId.get(m.sportId) ?? [];
+      list.push(m);
+      this.matchesBySportId.set(m.sportId, list);
+    }
+  }
+
+  private registerAthletic(a: AthleticRow) {
+    this.athletics.push(a);
+    if (a.nduAthleticId != null) this.athleticsByNduId.set(a.nduAthleticId, a);
+    if (a.normalizedName) this.athleticsByNormalized.set(a.normalizedName, a);
+  }
+
+  registerMatch(m: MatchRow) {
+    if (m.externalKey) this.matchesByExternalKey.set(m.externalKey, m);
+    const list = this.matchesBySportId.get(m.sportId) ?? [];
+    const idx = list.findIndex((x) => x.id === m.id);
+    if (idx >= 0) list[idx] = m;
+    else list.push(m);
+    this.matchesBySportId.set(m.sportId, list);
+  }
+
+  resolveTeamFromLogo(logoUrl?: string): { teamName: string; logoUrl?: string } {
+    if (!logoUrl) return { teamName: "" };
+
+    const athleticId = logoUrl.match(/atleticas\/(\d+)/i)?.[1];
+    if (athleticId) {
+      const byId = this.athletics.find((a) =>
+        a.logoUrl?.includes(`/atleticas/${athleticId}/`)
+      );
+      if (byId) return { teamName: byId.name, logoUrl };
+    }
+
+    const exact = this.athletics.find((a) => a.logoUrl === logoUrl);
+    if (exact) return { teamName: exact.name, logoUrl };
+
+    return { teamName: "", logoUrl };
+  }
+
+  async resolveTeam(rawName: string, logoUrl?: string): Promise<ResolvedTeam> {
+    const { athleticIdFromLogoUrl } = await import("./parser");
+    const cacheKey = `${rawName}|${logoUrl ?? ""}`;
+    const cached = this.teamCache.get(cacheKey);
+    if (cached) return cached;
+
+    const db = requireDb();
+    const normalized = this.normalizeTeamName(rawName);
+    const fallbackUniId = this.fallbackUniId;
+    if (!fallbackUniId) throw new Error("No universities in database");
+
+    const nduId = athleticIdFromLogoUrl(logoUrl);
+    if (nduId) {
+      const byNduId = this.athleticsByNduId.get(parseInt(nduId, 10));
+      if (byNduId) {
+        const bestLogo = byNduId.logoUrl ?? logoUrl;
+        if (bestLogo && byNduId.logoUrl !== bestLogo) {
+          await db
+            .update(athletics)
+            .set({ logoUrl: bestLogo })
+            .where(eq(athletics.id, byNduId.id));
+          byNduId.logoUrl = bestLogo;
+        }
+        const resolved = {
+          universityId: byNduId.universityId,
+          athleticsId: byNduId.id,
+          teamName: byNduId.name,
+        };
+        this.teamCache.set(cacheKey, resolved);
+        return resolved;
+      }
+    }
+
+    const exact =
+      this.athleticsByNormalized.get(normalized) ??
+      this.athletics.find(
+        (a) => a.nduAlias && this.normalizeTeamName(a.nduAlias) === normalized
+      ) ??
+      this.athletics.find((a) => a.name === rawName);
+
+    if (exact) {
+      const bestLogo = exact.logoUrl ?? logoUrl;
+      if (bestLogo && exact.logoUrl !== bestLogo) {
         await db
           .update(athletics)
           .set({ logoUrl: bestLogo })
-          .where(eq(athletics.id, byNduId.id));
+          .where(eq(athletics.id, exact.id));
+        exact.logoUrl = bestLogo;
       }
+      const resolved = {
+        universityId: exact.universityId,
+        athleticsId: exact.id,
+        teamName: exact.name,
+      };
+      this.teamCache.set(cacheKey, resolved);
+      return resolved;
+    }
+
+    const [createdAthletic] = await db
+      .insert(athletics)
+      .values({
+        universityId: fallbackUniId,
+        name: rawName,
+        nduAlias: rawName,
+        normalizedName: normalized,
+        logoUrl: logoUrl ?? null,
+      })
+      .returning();
+
+    this.registerAthletic(createdAthletic);
+    await db.insert(teamMappingQueue).values({
+      rawName,
+      suggestedAthleticsId: createdAthletic.id,
+      needsReview: true,
+    });
+
+    const resolved = {
+      universityId: fallbackUniId,
+      athleticsId: createdAthletic.id,
+      teamName: rawName,
+    };
+    this.teamCache.set(cacheKey, resolved);
+    return resolved;
+  }
+
+  async resolveMatchTeams(row: ParsedMatchRow) {
+    const fallbackUniId = this.fallbackUniId;
+    if (!fallbackUniId) throw new Error("No universities in database");
+
+    const homeLogo = this.resolveTeamFromLogo(row.homeLogoUrl);
+    const awayLogo = this.resolveTeamFromLogo(row.awayLogoUrl);
+
+    const homeRaw = (row.homeTeamRaw || homeLogo.teamName || "").trim();
+    const awayRaw = (row.awayTeamRaw || awayLogo.teamName || "").trim();
+
+    if (homeRaw && awayRaw) {
+      const [home, away] = await Promise.all([
+        this.resolveTeam(homeRaw, row.homeLogoUrl ?? homeLogo.logoUrl),
+        this.resolveTeam(awayRaw, row.awayLogoUrl ?? awayLogo.logoUrl),
+      ]);
       return {
-        universityId: byNduId.universityId,
-        athleticsId: byNduId.id,
-        teamName: byNduId.name,
+        homeUniversityId: home.universityId,
+        awayUniversityId: away.universityId,
+        homeAthleticsId: home.athleticsId,
+        awayAthleticsId: away.athleticsId,
+        homeTeamName: home.teamName || homeRaw,
+        awayTeamName: away.teamName || awayRaw,
       };
     }
-  }
 
-  const exact =
-    allAthletics.find((a) => a.normalizedName === normalized) ??
-    allAthletics.find(
-      (a) => a.nduAlias && normalizeTeamName(a.nduAlias) === normalized
-    ) ??
-    allAthletics.find((a) => a.name === rawName);
-
-  if (exact) {
-    const bestLogo = exact.logoUrl ?? logoUrl;
-    if (bestLogo && exact.logoUrl !== bestLogo) {
-      await db
-        .update(athletics)
-        .set({ logoUrl: bestLogo })
-        .where(eq(athletics.id, exact.id));
-    }
     return {
-      universityId: exact.universityId,
-      athleticsId: exact.id,
-      teamName: exact.name,
+      homeUniversityId: fallbackUniId,
+      awayUniversityId: fallbackUniId,
+      homeAthleticsId: null,
+      awayAthleticsId: null,
+      homeTeamName: homeRaw || null,
+      awayTeamName: awayRaw || null,
     };
   }
 
-  const [fallbackUni] = await db.select().from(universities).limit(1);
-  if (!fallbackUni) throw new Error("No universities in database");
+  findDuplicateMatch(
+    sportId: string,
+    row: ParsedMatchRow,
+    homeTeamName: string,
+    awayTeamName: string,
+    homeAthleticsId: string | null,
+    awayAthleticsId: string | null
+  ): MatchRow | null {
+    if (!row.series || row.homeScore == null || row.awayScore == null) return null;
 
-  const [createdAthletic] = await db
-    .insert(athletics)
-    .values({
-      universityId: fallbackUni.id,
-      name: rawName,
-      nduAlias: rawName,
-      normalizedName: normalized,
-      logoUrl: logoUrl ?? null,
-    })
-    .returning();
+    const homeNorm = this.normalizeTeamName(homeTeamName);
+    const awayNorm = this.normalizeTeamName(awayTeamName);
+    const candidates = this.matchesBySportId.get(sportId) ?? [];
 
-  await db.insert(teamMappingQueue).values({
-    rawName,
-    suggestedAthleticsId: createdAthletic.id,
-    needsReview: true,
-  });
-
-  return {
-    universityId: fallbackUni.id,
-    athleticsId: createdAthletic.id,
-    teamName: rawName,
-  };
-}
-
-async function resolveMatchTeams(row: ParsedMatchRow) {
-  const db = requireDb();
-  const [fallbackUni] = await db.select().from(universities).limit(1);
-  if (!fallbackUni) throw new Error("No universities in database");
-
-  const [homeLogo, awayLogo] = await Promise.all([
-    resolveTeamFromLogo(row.homeLogoUrl),
-    resolveTeamFromLogo(row.awayLogoUrl),
-  ]);
-
-  const homeRaw = (row.homeTeamRaw || homeLogo.teamName || "").trim();
-  const awayRaw = (row.awayTeamRaw || awayLogo.teamName || "").trim();
-
-  if (homeRaw && awayRaw) {
-    const [home, away] = await Promise.all([
-      resolveTeam(homeRaw, row.homeLogoUrl ?? homeLogo.logoUrl),
-      resolveTeam(awayRaw, row.awayLogoUrl ?? awayLogo.logoUrl),
-    ]);
-    return {
-      homeUniversityId: home.universityId,
-      awayUniversityId: away.universityId,
-      homeAthleticsId: home.athleticsId,
-      awayAthleticsId: away.athleticsId,
-      homeTeamName: home.teamName || homeRaw,
-      awayTeamName: away.teamName || awayRaw,
-    };
-  }
-
-  return {
-    homeUniversityId: fallbackUni.id,
-    awayUniversityId: fallbackUni.id,
-    homeAthleticsId: null,
-    awayAthleticsId: null,
-    homeTeamName: homeRaw || null,
-    awayTeamName: awayRaw || null,
-  };
-}
-
-async function resolveTeamFromLogo(
-  logoUrl?: string
-): Promise<{ teamName: string; logoUrl?: string }> {
-  if (!logoUrl) return { teamName: "" };
-
-  const db = requireDb();
-  const allAthletics = await db.select().from(athletics);
-  const athleticId = logoUrl.match(/atleticas\/(\d+)/i)?.[1];
-
-  if (athleticId) {
-    const byId = allAthletics.find((a) =>
-      a.logoUrl?.includes(`/atleticas/${athleticId}/`)
+    return (
+      candidates.find((m) => {
+        if (m.series !== row.series) return false;
+        if (m.homeScore !== row.homeScore || m.awayScore !== row.awayScore) {
+          return false;
+        }
+        return teamsMatch(
+          m,
+          homeNorm,
+          awayNorm,
+          homeAthleticsId,
+          awayAthleticsId,
+          this.normalizeTeamName
+        );
+      }) ?? null
     );
-    if (byId) return { teamName: byId.name, logoUrl };
   }
 
-  const exact = allAthletics.find((a) => a.logoUrl === logoUrl);
-  if (exact) return { teamName: exact.name, logoUrl };
+  findDuplicateByTeams(
+    sportId: string,
+    row: ParsedMatchRow,
+    homeTeamName: string,
+    awayTeamName: string,
+    homeAthleticsId: string | null,
+    awayAthleticsId: string | null
+  ): MatchRow | null {
+    if (!row.series || !homeTeamName || !awayTeamName) return null;
 
-  return { teamName: "", logoUrl };
+    const homeNorm = this.normalizeTeamName(homeTeamName);
+    const awayNorm = this.normalizeTeamName(awayTeamName);
+    const candidates = this.matchesBySportId.get(sportId) ?? [];
+
+    return (
+      candidates.find((m) => {
+        if (m.series !== row.series) return false;
+        return teamsMatch(
+          m,
+          homeNorm,
+          awayNorm,
+          homeAthleticsId,
+          awayAthleticsId,
+          this.normalizeTeamName
+        );
+      }) ?? null
+    );
+  }
 }
 
 async function syncMatchScorers(
   matchId: string,
   nduMatchId: string,
-  isBasketball: boolean
+  isBasketball: boolean,
+  ctx: NduSyncContext
 ) {
   const db = requireDb();
   const { parseNduResultPage } = await import("./parser");
@@ -180,17 +297,15 @@ async function syncMatchScorers(
   const { scorers } = parseNduResultPage(html);
   if (scorers.length === 0) return;
 
-  const payload = await Promise.all(
-    scorers.map(async (s) => {
-      const team = await resolveTeamFromLogo(s.teamLogoUrl);
-      return {
-        name: s.name,
-        team: team.teamName,
-        teamLogoUrl: team.logoUrl ?? s.teamLogoUrl,
-        ...(isBasketball ? { points: s.total } : { goals: s.total }),
-      };
-    })
-  );
+  const payload = scorers.map((s) => {
+    const team = ctx.resolveTeamFromLogo(s.teamLogoUrl);
+    return {
+      name: s.name,
+      team: team.teamName,
+      teamLogoUrl: team.logoUrl ?? s.teamLogoUrl,
+      ...(isBasketball ? { points: s.total } : { goals: s.total }),
+    };
+  });
 
   const existing = await db
     .select()
@@ -245,79 +360,6 @@ function teamsMatch(
   return direct || swapped;
 }
 
-async function findDuplicateMatch(
-  sportId: string,
-  row: ParsedMatchRow,
-  homeTeamName: string,
-  awayTeamName: string,
-  homeAthleticsId: string | null,
-  awayAthleticsId: string | null
-) {
-  const { normalizeTeamName } = await import("./parser");
-  const db = requireDb();
-  if (!row.series || row.homeScore == null || row.awayScore == null) return null;
-
-  const homeNorm = normalizeTeamName(homeTeamName);
-  const awayNorm = normalizeTeamName(awayTeamName);
-
-  const candidates = await db
-    .select()
-    .from(matches)
-    .where(eq(matches.sportId, sportId));
-
-  return (
-    candidates.find((m) => {
-      if (m.series !== row.series) return false;
-      if (m.homeScore !== row.homeScore || m.awayScore !== row.awayScore) {
-        return false;
-      }
-      return teamsMatch(
-        m,
-        homeNorm,
-        awayNorm,
-        homeAthleticsId,
-        awayAthleticsId,
-        normalizeTeamName
-      );
-    }) ?? null
-  );
-}
-
-async function findDuplicateByTeams(
-  sportId: string,
-  row: ParsedMatchRow,
-  homeTeamName: string,
-  awayTeamName: string,
-  homeAthleticsId: string | null,
-  awayAthleticsId: string | null
-) {
-  const { normalizeTeamName } = await import("./parser");
-  const db = requireDb();
-  if (!row.series || !homeTeamName || !awayTeamName) return null;
-
-  const homeNorm = normalizeTeamName(homeTeamName);
-  const awayNorm = normalizeTeamName(awayTeamName);
-
-  const candidates = await db
-    .select()
-    .from(matches)
-    .where(eq(matches.sportId, sportId));
-
-  return (
-    candidates.find((m) => {
-      if (m.series !== row.series) return false;
-      return teamsMatch(
-        m,
-        homeNorm,
-        awayNorm,
-        homeAthleticsId,
-        awayAthleticsId,
-        normalizeTeamName
-      );
-    }) ?? null
-  );
-}
-
 function resolveMatchStatus(
   row: ParsedMatchRow,
   scheduledAt: Date
@@ -338,7 +380,8 @@ async function upsertMatchRow(
   sportId: string,
   sportSlug: string,
   year: number,
-  seasonId: string | null
+  seasonId: string | null,
+  ctx: NduSyncContext
 ) {
   const db = requireDb();
   const { parseNduDateLabel, buildExternalKey } = await import("./parser");
@@ -350,60 +393,57 @@ async function upsertMatchRow(
     parseNduDateLabel(row.dateLabel, year) ??
     new Date();
   const status = resolveMatchStatus(row, scheduledAt);
-  const teams = await resolveMatchTeams(row);
+  const teams = await ctx.resolveMatchTeams(row);
 
-  let existing = await db
-    .select()
-    .from(matches)
-    .where(eq(matches.externalKey, externalKey))
-    .limit(1);
+  let existing: MatchRow | undefined =
+    ctx.matchesByExternalKey.get(externalKey);
 
   const homeName = teams.homeTeamName ?? row.homeTeamRaw ?? "";
   const awayName = teams.awayTeamName ?? row.awayTeamRaw ?? "";
 
-  if (!existing[0] && row.nduMatchId) {
-    const duplicate = await findDuplicateMatch(
-      sportId,
-      row,
-      homeName,
-      awayName,
-      teams.homeAthleticsId,
-      teams.awayAthleticsId
-    );
-    if (duplicate) existing = [duplicate];
+  if (!existing && row.nduMatchId) {
+    existing =
+      ctx.findDuplicateMatch(
+        sportId,
+        row,
+        homeName,
+        awayName,
+        teams.homeAthleticsId,
+        teams.awayAthleticsId
+      ) ?? undefined;
   }
 
-  if (!existing[0] && homeName && awayName) {
-    const duplicate = await findDuplicateByTeams(
-      sportId,
-      row,
-      homeName,
-      awayName,
-      teams.homeAthleticsId,
-      teams.awayAthleticsId
-    );
-    if (duplicate) existing = [duplicate];
+  if (!existing && homeName && awayName) {
+    existing =
+      ctx.findDuplicateByTeams(
+        sportId,
+        row,
+        homeName,
+        awayName,
+        teams.homeAthleticsId,
+        teams.awayAthleticsId
+      ) ?? undefined;
   }
 
   let matchId: string;
 
-  if (existing[0]) {
-    matchId = existing[0].id;
+  if (existing) {
+    matchId = existing.id;
     const preferJogos = Boolean(row.nduMatchId);
     const needsUpdate =
-      existing[0].homeScore !== row.homeScore ||
-      existing[0].awayScore !== row.awayScore ||
-      existing[0].status !== status ||
-      existing[0].externalKey !== externalKey ||
-      existing[0].groupName !== row.group ||
-      existing[0].sportId !== sportId ||
-      existing[0].modality !== row.modality ||
+      existing.homeScore !== row.homeScore ||
+      existing.awayScore !== row.awayScore ||
+      existing.status !== status ||
+      existing.externalKey !== externalKey ||
+      existing.groupName !== row.group ||
+      existing.sportId !== sportId ||
+      existing.modality !== row.modality ||
       (preferJogos &&
-        (existing[0].homeAthleticsId !== teams.homeAthleticsId ||
-          existing[0].awayAthleticsId !== teams.awayAthleticsId));
+        (existing.homeAthleticsId !== teams.homeAthleticsId ||
+          existing.awayAthleticsId !== teams.awayAthleticsId));
 
     if (needsUpdate) {
-      await db
+      const [updated] = await db
         .update(matches)
         .set({
           sportId,
@@ -412,13 +452,15 @@ async function upsertMatchRow(
           status,
           scheduledAt,
           updatedAt: new Date(),
-          externalKey: row.nduMatchId ? externalKey : existing[0].externalKey,
+          externalKey: row.nduMatchId ? externalKey : existing.externalKey,
           series: row.series,
           groupName: row.group,
           modality: row.modality,
           ...teams,
         })
-        .where(eq(matches.id, existing[0].id));
+        .where(eq(matches.id, existing.id))
+        .returning();
+      if (updated) ctx.registerMatch(updated);
     }
     return { created: false, updated: needsUpdate, matchId };
   }
@@ -442,6 +484,7 @@ async function upsertMatchRow(
     .returning();
 
   matchId = inserted.id;
+  ctx.registerMatch(inserted);
   return { created: true, updated: false, matchId };
 }
 
@@ -477,6 +520,18 @@ async function ingestMatchRows(
     return a.isFinished ? -1 : 1;
   });
 
+  const total = sortedRows.filter((row) => {
+    const slug = modalityToSportSlug(row.modality);
+    return slug && ["futebol", "futsal", "basquete"].includes(slug);
+  }).length;
+
+  console.log("[ndu] Carregando cache de atléticas e jogos...");
+  const ctx = new NduSyncContext();
+  await ctx.init();
+  console.log(
+    `[ndu] Cache pronto (${ctx.athletics.length} atléticas, ${ctx.matchesByExternalKey.size} jogos existentes)`
+  );
+
   let processed = 0;
   for (const row of sortedRows) {
     const slug = modalityToSportSlug(row.modality);
@@ -486,10 +541,17 @@ async function ingestMatchRows(
     if (!sport) continue;
 
     try {
-      const result = await upsertMatchRow(row, sport.id, slug, year, seasonId);
+      const result = await upsertMatchRow(
+        row,
+        sport.id,
+        slug,
+        year,
+        seasonId,
+        ctx
+      );
       processed++;
-      if (processed % 100 === 0) {
-        console.log(`[ndu] Jogos processados: ${processed}/${allRows.length}`);
+      if (processed === 1 || processed % 25 === 0 || processed === total) {
+        console.log(`[ndu] Jogos processados: ${processed}/${total}`);
       }
       if (result.created) totalCreated++;
       if (result.updated) totalUpdated++;
@@ -515,7 +577,12 @@ async function ingestMatchRows(
 
   for (const item of finishedForScorers.slice(0, opts.scorerLimit)) {
     try {
-      await syncMatchScorers(item.matchId, item.nduMatchId, item.isBasketball);
+      await syncMatchScorers(
+        item.matchId,
+        item.nduMatchId,
+        item.isBasketball,
+        ctx
+      );
       scorersSynced++;
     } catch (e) {
       errors.push(
