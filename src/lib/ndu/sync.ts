@@ -470,7 +470,9 @@ export async function runFullScrape(options: ScrapeOptions = {}) {
     const seasonId = activeSeason?.id ?? null;
 
     try {
+      console.log("[ndu] Sincronizando atléticas...");
       athleticsSynced = await syncNduAthletics();
+      console.log(`[ndu] Atléticas: ${athleticsSynced}`);
     } catch (e) {
       errors.push(
         `athletics: ${e instanceof Error ? e.message : String(e)}`
@@ -480,23 +482,32 @@ export async function runFullScrape(options: ScrapeOptions = {}) {
     let allRows: ParsedMatchRow[] = [];
 
     try {
+      console.log("[ndu] Lendo boletim PDF...");
       const boletim = await parseBoletimMatches(year);
       if (boletim) {
         boletimMatches = boletim.rows.length;
         boletimTitle = boletim.title;
         allRows = [...boletim.rows];
+        console.log(
+          `[ndu] Boletim: ${boletimMatches} jogos${boletimTitle ? ` (${boletimTitle})` : ""}`
+        );
+      } else {
+        console.log("[ndu] Boletim: nenhum PDF disponível");
       }
     } catch (e) {
       errors.push(`boletim: ${e instanceof Error ? e.message : String(e)}`);
     }
 
     try {
+      console.log("[ndu] Buscando jogos no site...");
       const jogosRows = await fetchAllNduJogosRows();
       allRows = [...allRows, ...jogosRows];
+      console.log(`[ndu] Jogos do site: ${jogosRows.length}`);
     } catch (e) {
       errors.push(`jogos: ${e instanceof Error ? e.message : String(e)}`);
     }
 
+    console.log(`[ndu] Gravando ${allRows.length} jogos no banco (pode levar alguns minutos)...`);
     const ingest = await ingestMatchRows(
       allRows,
       sportBySlug,
