@@ -3,7 +3,7 @@ import { after } from "next/server";
 import { PalpitesClient } from "./PalpitesClient";
 import { getMatchesByFilter } from "@/lib/queries/matches";
 import { getUserMarketPredictions } from "@/lib/queries/market-predictions";
-import { getUserPredictionsForMatches } from "@/lib/queries/predictions";
+import { getUserSavedMatchPredictions } from "@/lib/queries/predictions";
 import {
   getCardPlayerOptions,
   getScorerOptions,
@@ -49,12 +49,12 @@ export default async function PalpitesPage({
     }),
   ]);
 
-  let playBalance = 10000;
+  let totalPoints = 0;
   let realBalance = 0;
   let realEntryPaid = false;
   if (session) {
     const balances = await getUserBalances(session.userId);
-    playBalance = balances.playBalance;
+    totalPoints = balances.totalPoints;
     realBalance = balances.realBalance;
     realEntryPaid = balances.realEntryPaid;
   }
@@ -78,37 +78,25 @@ export default async function PalpitesPage({
       )
     : [];
 
-  const predictionMap = session
+  const savedMatchPredictions = session
     ? await safeQuery(
         () =>
-          getUserPredictionsForMatches(
+          getUserSavedMatchPredictions(
             session.userId,
-            upcomingMatches.map((m) => m.id),
+            sport,
+            series,
             currencyMode
           ),
-        new Map()
+        []
       )
-    : new Map();
-
-  const matchPredictions = Object.fromEntries(
-    [...predictionMap.entries()].map(([id, row]) => [
-      id,
-      {
-        result: row.result,
-        homeScore: row.homeScore,
-        awayScore: row.awayScore,
-      },
-    ])
-  );
+    : [];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Palpites</h1>
         <p className="text-sm text-zinc-400">
-          {currencyMode === "play"
-            ? "Ambiente gratuito · fichas virtuais"
-            : "Ambiente pago · dinheiro real"}
+          Ganhe pontos a cada acerto · palpites gratuitos
         </p>
       </div>
       <Suspense fallback={<p className="text-zinc-400">Carregando...</p>}>
@@ -116,7 +104,7 @@ export default async function PalpitesPage({
           sport={sport}
           series={series}
           currencyMode={currencyMode}
-          playBalance={playBalance}
+          totalPoints={totalPoints}
           realBalance={realBalance}
           realEntryPaid={realEntryPaid}
           isLoggedIn={!!session}
@@ -124,8 +112,8 @@ export default async function PalpitesPage({
           scorerOptions={scorerOptions}
           cardOptions={cardOptions}
           upcomingMatches={upcomingMatches}
+          savedMatchPredictions={savedMatchPredictions}
           marketPredictions={marketPredictions}
-          matchPredictions={matchPredictions}
         />
       </Suspense>
     </div>

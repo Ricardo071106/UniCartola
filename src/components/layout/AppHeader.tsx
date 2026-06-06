@@ -8,12 +8,12 @@ import { CurrencyToggle } from "@/components/currency/CurrencyToggle";
 export function AppHeader({
   session,
   currencyMode = "play",
-  playBalance,
+  totalPoints,
   realBalance,
 }: {
   session: SessionPayload | null;
   currencyMode?: CurrencyMode;
-  playBalance?: number;
+  totalPoints?: number;
   realBalance?: number;
 }) {
   return (
@@ -42,7 +42,7 @@ export function AppHeader({
           <div className="hidden lg:block">
             <CurrencyToggle
               mode={currencyMode}
-              playBalance={playBalance}
+              totalPoints={totalPoints}
               realBalance={realBalance}
               compact
             />

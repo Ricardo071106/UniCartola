@@ -1,7 +1,10 @@
 import { requireDb } from "@/lib/db";
-import { predictions } from "@/lib/db/schema";
+import { predictions, matches, sports } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import type { CurrencyMode } from "@/lib/currency/mode";
+import type { SportSlug } from "@/types";
+import { enrichMatches } from "./matches";
+import type { MatchPredictionView } from "@/types";
 
 export async function getUserPredictionForMatch(
   userId: string,
@@ -44,4 +47,66 @@ export async function getUserPredictionsForMatches(
     if (matchIds.includes(row.matchId)) map.set(row.matchId, row);
   }
   return map;
+}
+
+export function predictionToView(
+  row: typeof predictions.$inferSelect
+): MatchPredictionView {
+  return {
+    result: row.result,
+    homeScore: row.homeScore,
+    awayScore: row.awayScore,
+    homeFouls: row.homeFouls,
+    awayFouls: row.awayFouls,
+    homeCards: row.homeCards,
+    awayCards: row.awayCards,
+  };
+}
+
+export async function getUserSavedMatchPredictions(
+  userId: string,
+  sportSlug: SportSlug,
+  series: string,
+  currencyMode: CurrencyMode
+) {
+  const db = requireDb();
+  const [sportRow] = await db
+    .select()
+    .from(sports)
+    .where(eq(sports.slug, sportSlug))
+    .limit(1);
+  if (!sportRow) return [];
+
+  const rows = await db
+    .select({ prediction: predictions, match: matches })
+    .from(predictions)
+    .innerJoin(matches, eq(predictions.matchId, matches.id))
+    .where(
+      and(
+        eq(predictions.userId, userId),
+        eq(predictions.currencyMode, currencyMode),
+        eq(matches.sportId, sportRow.id),
+        eq(matches.series, series)
+      )
+    );
+
+  if (rows.length === 0) return [];
+
+  const enriched = await enrichMatches(rows.map((r) => r.match));
+  const matchMap = new Map(enriched.map((m) => [m.id, m]));
+
+  return rows
+    .map((r) => {
+      const match = matchMap.get(r.match.id);
+      if (!match) return null;
+      return {
+        match,
+        prediction: predictionToView(r.prediction),
+      };
+    })
+    .filter(Boolean)
+    .sort(
+      (a, b) =>
+        a!.match.scheduledAt.getTime() - b!.match.scheduledAt.getTime()
+    ) as { match: (typeof enriched)[0]; prediction: MatchPredictionView }[];
 }

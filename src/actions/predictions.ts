@@ -5,44 +5,19 @@ import { requireDb } from "@/lib/db";
 import { predictions, matches, users } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { getCurrencyMode } from "@/lib/currency/server";
-import { DEFAULT_STAKE } from "@/lib/currency/mode";
 import { requireRealEntryPaid } from "@/lib/currency/real-entry";
 import { and, eq, sql } from "drizzle-orm";
 import type { PredictionResult } from "@/types";
-
-async function chargeStake(userId: string, mode: "play" | "real") {
-  const db = requireDb();
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  if (!user) throw new Error("Usuário não encontrado");
-
-  const balance = mode === "play" ? user.playBalance : user.realBalance;
-  if (balance < DEFAULT_STAKE) {
-    throw new Error(
-      mode === "play"
-        ? "Saldo de fichas insuficiente"
-        : "Saldo real insuficiente"
-    );
-  }
-
-  await db
-    .update(users)
-    .set(
-      mode === "play"
-        ? { playBalance: user.playBalance - DEFAULT_STAKE }
-        : { realBalance: user.realBalance - DEFAULT_STAKE }
-    )
-    .where(eq(users.id, userId));
-}
 
 export async function submitPrediction(data: {
   matchId: string;
   result: PredictionResult;
   homeScore?: number;
   awayScore?: number;
+  homeFouls?: number;
+  awayFouls?: number;
+  homeCards?: number;
+  awayCards?: number;
 }) {
   try {
     const session = await requireSession();
@@ -63,9 +38,6 @@ export async function submitPrediction(data: {
       return { error: "Palpites encerrados para esta partida" };
     }
 
-    const hasScore =
-      data.homeScore !== undefined && data.awayScore !== undefined;
-
     const existing = await db
       .select()
       .from(predictions)
@@ -78,25 +50,28 @@ export async function submitPrediction(data: {
       )
       .limit(1);
 
+    const values = {
+      result: data.result,
+      homeScore: data.homeScore ?? null,
+      awayScore: data.awayScore ?? null,
+      homeFouls: data.homeFouls ?? null,
+      awayFouls: data.awayFouls ?? null,
+      homeCards: data.homeCards ?? null,
+      awayCards: data.awayCards ?? null,
+    };
+
     if (existing.length) {
       await db
         .update(predictions)
-        .set({
-          result: data.result,
-          homeScore: hasScore ? data.homeScore : null,
-          awayScore: hasScore ? data.awayScore : null,
-        })
+        .set(values)
         .where(eq(predictions.id, existing[0].id));
     } else {
-      await chargeStake(session.userId, currencyMode);
       await db.insert(predictions).values({
         userId: session.userId,
         matchId: data.matchId,
-        result: data.result,
-        homeScore: hasScore ? data.homeScore : null,
-        awayScore: hasScore ? data.awayScore : null,
         currencyMode,
-        stakeAmount: DEFAULT_STAKE,
+        stakeAmount: 0,
+        ...values,
       });
 
       await db
@@ -109,6 +84,7 @@ export async function submitPrediction(data: {
 
     revalidatePath(`/partida/${data.matchId}`);
     revalidatePath("/palpites");
+    revalidatePath("/jogos");
     revalidatePath("/perfil");
     return { success: true };
   } catch (e) {

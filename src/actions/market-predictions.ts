@@ -2,43 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { requireDb } from "@/lib/db";
-import { marketPredictions, sports, users } from "@/lib/db/schema";
+import { marketPredictions, sports } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { getCurrencyMode } from "@/lib/currency/server";
 import { requireRealEntryPaid } from "@/lib/currency/real-entry";
-import { DEFAULT_STAKE, type CurrencyMode } from "@/lib/currency/mode";
 import { and, eq } from "drizzle-orm";
 import type { SportSlug } from "@/types";
 import type { SeriesLetter } from "@/lib/queries/standings";
 import type { MarketPredictionType } from "@/lib/queries/market-predictions";
-
-async function ensureStake(userId: string, mode: CurrencyMode) {
-  const db = requireDb();
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  if (!user) throw new Error("Usuário não encontrado");
-
-  const balance = mode === "play" ? user.playBalance : user.realBalance;
-  if (balance < DEFAULT_STAKE) {
-    throw new Error(
-      mode === "play"
-        ? "Saldo de fichas insuficiente"
-        : "Saldo real insuficiente — adicione fundos para palpitar"
-    );
-  }
-
-  await db
-    .update(users)
-    .set(
-      mode === "play"
-        ? { playBalance: user.playBalance - DEFAULT_STAKE }
-        : { realBalance: user.realBalance - DEFAULT_STAKE }
-    )
-    .where(eq(users.id, userId));
-}
 
 export async function submitMarketPrediction(data: {
   sportSlug: SportSlug;
@@ -87,7 +58,6 @@ export async function submitMarketPrediction(data: {
       .limit(1);
 
     if (!existing.length) {
-      await ensureStake(session.userId, currencyMode);
       await db.insert(marketPredictions).values({
         userId: session.userId,
         sportId: sport.id,
@@ -96,7 +66,7 @@ export async function submitMarketPrediction(data: {
         marketType: data.marketType,
         athleticsId: data.athleticsId ?? null,
         playerName: data.playerName?.trim() ?? null,
-        stakeAmount: DEFAULT_STAKE,
+        stakeAmount: 0,
       });
     } else {
       await db

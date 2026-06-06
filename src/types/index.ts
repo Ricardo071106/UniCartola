@@ -4,6 +4,16 @@ export type MatchStatus = "scheduled" | "live" | "finished" | "cancelled";
 
 export type PredictionResult = "home" | "draw" | "away";
 
+export type MatchPredictionView = {
+  result: PredictionResult;
+  homeScore: number | null;
+  awayScore: number | null;
+  homeFouls: number | null;
+  awayFouls: number | null;
+  homeCards: number | null;
+  awayCards: number | null;
+};
+
 export type RankingTab =
   | "general"
   | "university"

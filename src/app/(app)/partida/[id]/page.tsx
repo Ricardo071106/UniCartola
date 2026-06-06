@@ -4,7 +4,10 @@ import { MapPin, Clock, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PredictionCard } from "@/components/prediction/PredictionCard";
 import { getMatchById } from "@/lib/queries/matches";
-import { getUserPredictionForMatch } from "@/lib/queries/predictions";
+import {
+  getUserPredictionForMatch,
+  predictionToView,
+} from "@/lib/queries/predictions";
 import { getSession } from "@/lib/auth/session";
 import { getCurrencyMode } from "@/lib/currency/server";
 import { formatMatchDate, formatMatchTime } from "@/lib/utils";
@@ -107,18 +110,11 @@ export default async function PartidaPage({
 
       <PredictionCard
         matchId={match.id}
+        sportSlug={match.sport.slug as "futebol" | "futsal" | "basquete"}
         homeShortName={match.homeTeam.name}
         awayShortName={match.awayTeam.name}
         matchStatus={match.status}
-        existingPrediction={
-          prediction
-            ? {
-                result: prediction.result,
-                homeScore: prediction.homeScore,
-                awayScore: prediction.awayScore,
-              }
-            : null
-        }
+        existingPrediction={prediction ? predictionToView(prediction) : null}
       />
     </div>
   );

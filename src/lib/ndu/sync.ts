@@ -709,6 +709,18 @@ export async function runFullScrape(options: ScrapeOptions = {}) {
       errors.push(`stats: ${e instanceof Error ? e.message : String(e)}`);
     }
 
+    try {
+      const { scoreFinishedMatchPredictions } = await import(
+        "@/lib/services/score-predictions"
+      );
+      const scored = await scoreFinishedMatchPredictions();
+      if (scored > 0) {
+        console.log(`[ndu] Palpites pontuados: ${scored}`);
+      }
+    } catch (e) {
+      errors.push(`scoring: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
     await db
       .update(scrapeRuns)
       .set({

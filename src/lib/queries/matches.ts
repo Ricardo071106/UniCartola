@@ -15,7 +15,7 @@ import {
   addDaysBrazil,
 } from "@/lib/utils";
 
-async function enrichMatches(
+export async function enrichMatches(
   raw: (typeof matches.$inferSelect)[]
 ): Promise<MatchWithTeams[]> {
   if (raw.length === 0) return [];

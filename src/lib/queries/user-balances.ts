@@ -8,6 +8,7 @@ export async function getUserBalances(userId: string): Promise<{
   playBalance: number;
   realBalance: number;
   realEntryPaid: boolean;
+  totalPoints: number;
 }> {
   try {
     const db = requireDb();
@@ -16,6 +17,7 @@ export async function getUserBalances(userId: string): Promise<{
         playBalance: users.playBalance,
         realBalance: users.realBalance,
         realEntryPaid: users.realEntryPaid,
+        totalPoints: users.totalPoints,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -24,6 +26,7 @@ export async function getUserBalances(userId: string): Promise<{
       playBalance: user?.playBalance ?? DEFAULT_PLAY_BALANCE,
       realBalance: user?.realBalance ?? 0,
       realEntryPaid: user?.realEntryPaid ?? false,
+      totalPoints: user?.totalPoints ?? 0,
     };
   } catch (error) {
     console.error("[getUserBalances]", error);
@@ -31,6 +34,7 @@ export async function getUserBalances(userId: string): Promise<{
       playBalance: DEFAULT_PLAY_BALANCE,
       realBalance: 0,
       realEntryPaid: false,
+      totalPoints: 0,
     };
   }
 }

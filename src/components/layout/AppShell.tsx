@@ -21,13 +21,13 @@ export function AppShell({
   children,
   session,
   currencyMode = "play",
-  playBalance,
+  totalPoints,
   realBalance,
 }: {
   children: React.ReactNode;
   session: SessionPayload | null;
   currencyMode?: CurrencyMode;
-  playBalance?: number;
+  totalPoints?: number;
   realBalance?: number;
 }) {
   const pathname = usePathname();
@@ -37,7 +37,7 @@ export function AppShell({
       <AppHeader
         session={session}
         currencyMode={currencyMode}
-        playBalance={playBalance}
+        totalPoints={totalPoints}
         realBalance={realBalance}
       />
 

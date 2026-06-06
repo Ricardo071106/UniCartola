@@ -1,19 +1,20 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Star, CalendarDays, Trophy } from "lucide-react";
 import { MatchCard } from "@/components/match/MatchCard";
-import { PredictionCard } from "@/components/prediction/PredictionCard";
+import { MatchPredictionForm } from "@/components/prediction/MatchPredictionForm";
+import { SeasonPicksPanel } from "@/components/prediction/SeasonPicksPanel";
 import { CurrencyToggle } from "@/components/currency/CurrencyToggle";
 import { RealEntryButton } from "@/components/currency/RealEntryButton";
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { submitMarketPrediction } from "@/actions/market-predictions";
+import { maxMatchPredictionPoints } from "@/lib/scoring-config";
 import type { CurrencyMode } from "@/lib/currency/mode";
-import type { MatchWithTeams, SportSlug } from "@/types";
+import type { MatchWithTeams, MatchPredictionView, SportSlug } from "@/types";
 import type { MarketPredictionView } from "@/lib/queries/market-predictions";
 import type { PlayerOption, TeamOption } from "@/lib/queries/palpites-options";
-import type { PredictionResult } from "@/types";
 
 const SERIES = ["A", "B", "C", "D", "E", "F"] as const;
 const sports: { slug: SportSlug; label: string }[] = [
@@ -26,7 +27,7 @@ interface PalpitesClientProps {
   sport: SportSlug;
   series: (typeof SERIES)[number];
   currencyMode: CurrencyMode;
-  playBalance: number;
+  totalPoints: number;
   realBalance: number;
   realEntryPaid: boolean;
   isLoggedIn: boolean;
@@ -34,53 +35,15 @@ interface PalpitesClientProps {
   scorerOptions: PlayerOption[];
   cardOptions: PlayerOption[];
   upcomingMatches: MatchWithTeams[];
+  savedMatchPredictions: { match: MatchWithTeams; prediction: MatchPredictionView }[];
   marketPredictions: MarketPredictionView[];
-  matchPredictions: Record<
-    string,
-    {
-      result: PredictionResult;
-      homeScore: number | null;
-      awayScore: number | null;
-    }
-  >;
-}
-
-function PlayerSelect({
-  name,
-  options,
-  defaultValue,
-  disabled,
-  placeholder,
-}: {
-  name: string;
-  options: PlayerOption[];
-  defaultValue?: string | null;
-  disabled?: boolean;
-  placeholder: string;
-}) {
-  return (
-    <select
-      name={name}
-      defaultValue={defaultValue ?? ""}
-      disabled={disabled}
-      className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
-    >
-      <option value="">{placeholder}</option>
-      {options.map((p) => (
-        <option key={p.name} value={p.name}>
-          {p.name}
-          {p.teamName ? ` · ${p.teamName}` : ""}
-        </option>
-      ))}
-    </select>
-  );
 }
 
 export function PalpitesClient({
   sport,
   series,
   currencyMode,
-  playBalance,
+  totalPoints,
   realBalance,
   realEntryPaid,
   isLoggedIn,
@@ -88,12 +51,11 @@ export function PalpitesClient({
   scorerOptions,
   cardOptions,
   upcomingMatches,
+  savedMatchPredictions,
   marketPredictions,
-  matchPredictions,
 }: PalpitesClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [pending, startTransition] = useTransition();
   const isBasketball = sport === "basquete";
   const [liveTeams, setLiveTeams] = useState(teamOptions);
   const [liveScorers, setLiveScorers] = useState(scorerOptions);
@@ -154,28 +116,8 @@ export function PalpitesClient({
   const isRealMode = currencyMode === "real";
   const canBet = isLoggedIn && (!isRealMode || realEntryPaid);
 
-  const savedMatchEntries = upcomingMatches
-    .filter((m) => matchPredictions[m.id])
-    .map((m) => ({
-      match: m,
-      prediction: matchPredictions[m.id]!,
-    }));
-
-  const hasSavedMarket =
-    Boolean(champion?.athleticsName || champion?.athleticsId) ||
-    Boolean(topScorer?.playerName) ||
-    Boolean(topCards?.playerName);
-  const hasSavedMatches = savedMatchEntries.length > 0;
-
-  const resultLabel = (
-    result: PredictionResult,
-    home: string,
-    away: string
-  ) => {
-    if (result === "home") return home;
-    if (result === "away") return away;
-    return "Empate";
-  };
+  const savedIds = new Set(savedMatchPredictions.map((s) => s.match.id));
+  const upcomingWithoutSaved = upcomingMatches.filter((m) => !savedIds.has(m.id));
 
   function updateParams(key: string, value: string) {
     const p = new URLSearchParams(searchParams.toString());
@@ -183,54 +125,46 @@ export function PalpitesClient({
     router.push(`/palpites?${p.toString()}`);
   }
 
-  function saveMarket(
-    marketType: "champion" | "top_scorer" | "top_cards",
-    form: FormData
-  ) {
-    startTransition(async () => {
-      const res = await submitMarketPrediction({
-        sportSlug: sport,
-        series,
-        marketType,
-        athleticsId: form.get("athleticsId")?.toString(),
-        playerName: form.get("playerName")?.toString(),
-      });
-      if (res.error) alert(res.error);
-      else router.refresh();
-    });
-  }
-
   return (
     <div className="space-y-6">
-      <div className="cartola-card flex flex-col gap-4 p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-bold text-white">Modo de jogo</p>
-            <p className="text-xs text-zinc-500">
-              {isRealMode
-                ? "Palpites pagos · ambiente separado do modo fichas"
-                : "Palpites gratuitos · fichas virtuais"}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <CurrencyToggle
-              mode={currencyMode}
-              playBalance={playBalance}
-              realBalance={realBalance}
-            />
-            {isRealMode && isLoggedIn && (
-              <RealEntryButton paid={realEntryPaid} />
-            )}
+      <div className="cartola-card overflow-hidden p-0">
+        <div className="bg-gradient-to-r from-[#006b3f] to-[#004d2d] px-5 py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-200/80">
+                Seus pontos
+              </p>
+              <p className="flex items-center gap-2 text-3xl font-black text-white">
+                <Star className="h-7 w-7 text-amber-300" />
+                {totalPoints.toLocaleString("pt-BR")}
+                <span className="text-sm font-medium text-emerald-100/80">pts</span>
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <CurrencyToggle
+                mode={currencyMode}
+                totalPoints={totalPoints}
+                realBalance={realBalance}
+              />
+              {isRealMode && isLoggedIn && (
+                <RealEntryButton paid={realEntryPaid} />
+              )}
+            </div>
           </div>
         </div>
-
-        {isRealMode && isLoggedIn && !realEntryPaid && (
-          <p className="rounded-lg border border-amber-600/40 bg-amber-600/10 px-3 py-2 text-xs text-amber-300">
-            Pague a inscrição de R$ 30,00 para liberar palpites no modo dinheiro
-            real. Este ambiente é independente do modo fichas.
-          </p>
-        )}
+        <div className="px-5 py-3 text-xs text-zinc-400">
+          {isRealMode
+            ? "Modo dinheiro real · ranking separado"
+            : "Modo gratuito · ganhe pontos a cada acerto"}
+        </div>
       </div>
+
+      {isRealMode && isLoggedIn && !realEntryPaid && (
+        <p className="rounded-lg border border-amber-600/40 bg-amber-600/10 px-3 py-2 text-xs text-amber-300">
+          Pague a inscrição de R$ 30,00 para liberar palpites no modo dinheiro
+          real.
+        </p>
+      )}
 
       <div className="flex gap-2 overflow-x-auto pb-1">
         {sports.map((s) => (
@@ -266,227 +200,173 @@ export function PalpitesClient({
         ))}
       </div>
 
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-base font-black text-white">Jogos futuros</h2>
-          <p className="text-xs text-zinc-500">
-            Vencedor e placar · aposta de 100{" "}
-            {currencyMode === "play" ? "fichas" : "créditos"}
-            {isRealMode && " · ambiente pago"}
-          </p>
-        </div>
+      <Tabs defaultValue="jogos" className="space-y-4">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1">
+          <TabsTrigger value="jogos" className="gap-2 py-2.5">
+            <CalendarDays className="h-4 w-4" />
+            Por jogo
+          </TabsTrigger>
+          <TabsTrigger value="temporada" className="gap-2 py-2.5">
+            <Trophy className="h-4 w-4" />
+            Temporada
+          </TabsTrigger>
+        </TabsList>
 
-        {upcomingMatches.length === 0 && (
-          <p className="py-8 text-center text-sm text-zinc-400">
-            Nenhum jogo agendado nesta série. Tente outra série (B, C…) — os
-            jogos futuros vêm do boletim NDU e aparecem após o sync.
-          </p>
-        )}
+        <TabsContent value="jogos" className="space-y-6">
+          {!isLoggedIn && (
+            <p className="text-sm text-zinc-400">
+              Faça login para registrar palpites.
+            </p>
+          )}
 
-        {upcomingMatches.map((match) => {
-          const hasSaved = Boolean(matchPredictions[match.id]);
-          return (
-            <div key={match.id} className="space-y-3">
-              <MatchCard match={match} compact />
-              {canBet && !hasSaved ? (
-                <PredictionCard
-                  matchId={match.id}
-                  homeShortName={match.homeTeam.name}
-                  awayShortName={match.awayTeam.name}
-                  matchStatus={match.status}
-                  existingPrediction={null}
-                />
-              ) : canBet && hasSaved ? (
-                <p className="text-xs text-zinc-500">
-                  Palpite salvo — veja em &quot;Seus palpites salvos&quot; abaixo.
-                </p>
-              ) : isLoggedIn && isRealMode && !realEntryPaid ? (
-                <p className="text-xs text-amber-400">
-                  Pague a inscrição para palpitar neste jogo no modo real.
-                </p>
-              ) : null}
-            </div>
-          );
-        })}
-      </section>
-
-      <section className="cartola-card space-y-4 border border-[#006b3f]/30 p-4">
-        <div>
-          <h2 className="text-base font-black text-white">Seus palpites salvos</h2>
-          <p className="text-xs text-zinc-500">
-            {sports.find((s) => s.slug === sport)?.label} · Série {series}
-            {isRealMode ? " · modo real" : " · modo fichas"}
-          </p>
-        </div>
-
-        {!isLoggedIn && (
-          <p className="text-sm text-zinc-400">
-            Faça login para registrar e ver seus palpites.
-          </p>
-        )}
-
-        {isLoggedIn && (
-          <>
-            <div className="space-y-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Temporada
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-base font-black text-white">Próximos jogos</h2>
+              <p className="text-xs text-zinc-500">
+                Até {maxMatchPredictionPoints(sport)} pts por partida
               </p>
-
-              {hasSavedMarket && (
-                <div className="space-y-1 rounded-lg bg-zinc-900/60 p-3 text-sm">
-                  {(champion?.athleticsName || champion?.athleticsId) && (
-                    <p className="text-white">
-                      <span className="text-zinc-400">Campeão:</span>{" "}
-                      {champion?.athleticsName ??
-                        liveTeams.find((t) => t.id === champion?.athleticsId)
-                          ?.name ??
-                        "—"}
-                    </p>
-                  )}
-                  {topScorer?.playerName && (
-                    <p className="text-white">
-                      <span className="text-zinc-400">
-                        {isBasketball ? "Pontuador" : "Artilheiro"}:
-                      </span>{" "}
-                      {topScorer.playerName}
-                    </p>
-                  )}
-                  {!isBasketball && topCards?.playerName && (
-                    <p className="text-white">
-                      <span className="text-zinc-400">Cartões:</span>{" "}
-                      {topCards.playerName}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <form
-                className="space-y-2"
-                action={(fd) => saveMarket("champion", fd)}
-              >
-                <label className="text-xs font-semibold text-zinc-400">
-                  Campeão da série {series}
-                </label>
-                <select
-                  key={`teams-${sport}-${series}-${liveTeams.length}`}
-                  name="athleticsId"
-                  defaultValue={champion?.athleticsId ?? ""}
-                  disabled={!canBet || pending || loadingPlayers}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
-                >
-                  <option value="">
-                    {loadingPlayers ? "Carregando times..." : "Selecione o time"}
-                  </option>
-                  {liveTeams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-                <Button type="submit" size="sm" disabled={!canBet || pending}>
-                  {champion ? "Atualizar campeão" : "Salvar campeão"}
-                </Button>
-              </form>
-
-              <form
-                className="space-y-2"
-                action={(fd) => saveMarket("top_scorer", fd)}
-              >
-                <label className="text-xs font-semibold text-zinc-400">
-                  {isBasketball ? "Maior pontuador" : "Artilheiro"}
-                </label>
-                <PlayerSelect
-                  key={`scorer-${sport}-${series}-${liveScorers.length}`}
-                  name="playerName"
-                  options={liveScorers}
-                  defaultValue={topScorer?.playerName}
-                  disabled={!canBet || pending || loadingPlayers}
-                  placeholder={
-                    loadingPlayers
-                      ? "Carregando jogadores..."
-                      : isBasketball
-                        ? "Selecione o pontuador"
-                        : "Selecione o artilheiro"
-                  }
-                />
-                <Button type="submit" size="sm" disabled={!canBet || pending}>
-                  {topScorer
-                    ? `Atualizar ${isBasketball ? "pontuador" : "artilheiro"}`
-                    : `Salvar ${isBasketball ? "pontuador" : "artilheiro"}`}
-                </Button>
-              </form>
-
-              {!isBasketball && (
-                <form
-                  className="space-y-2"
-                  action={(fd) => saveMarket("top_cards", fd)}
-                >
-                  <label className="text-xs font-semibold text-zinc-400">
-                    Mais cartões
-                  </label>
-                  <PlayerSelect
-                    key={`cards-${sport}-${series}-${liveCards.length}`}
-                    name="playerName"
-                    options={liveCards}
-                    defaultValue={topCards?.playerName}
-                    disabled={!canBet || pending || loadingPlayers}
-                    placeholder={
-                      loadingPlayers
-                        ? "Carregando jogadores..."
-                        : "Selecione o jogador"
-                    }
-                  />
-                  <Button type="submit" size="sm" disabled={!canBet || pending}>
-                    {topCards ? "Atualizar cartões" : "Salvar cartões"}
-                  </Button>
-                </form>
-              )}
             </div>
 
-            {hasSavedMatches ? (
-              <div className="space-y-3 border-t border-zinc-800 pt-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Jogos
-                </p>
-                {savedMatchEntries.map(({ match, prediction }) => (
-                  <div key={match.id} className="space-y-3">
-                    <MatchCard match={match} compact />
-                    {canBet ? (
-                      <PredictionCard
-                        matchId={match.id}
-                        homeShortName={match.homeTeam.name}
-                        awayShortName={match.awayTeam.name}
-                        matchStatus={match.status}
-                        existingPrediction={prediction}
-                      />
-                    ) : (
-                      <div className="rounded-lg bg-zinc-900/60 px-3 py-2 text-sm text-white">
-                        <span className="text-zinc-400">Palpite:</span>{" "}
-                        {resultLabel(
-                          prediction.result,
-                          match.homeTeam.name,
-                          match.awayTeam.name
-                        )}
-                        {prediction.homeScore != null &&
-                          prediction.awayScore != null && (
-                            <span className="text-zinc-400">
-                              {" "}
-                              · {prediction.homeScore}×{prediction.awayScore}
-                            </span>
-                          )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="border-t border-zinc-800 pt-4 text-xs text-zinc-500">
-                Nenhum palpite de jogo salvo nesta série ainda.
+            {upcomingWithoutSaved.length === 0 && (
+              <p className="py-6 text-center text-sm text-zinc-400">
+                Nenhum jogo novo para palpitar nesta série.
               </p>
             )}
-          </>
-        )}
-      </section>
+
+            {upcomingWithoutSaved.map((match) => (
+              <div
+                key={match.id}
+                className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4"
+              >
+                <MatchCard match={match} compact />
+                {canBet ? (
+                  <MatchPredictionForm
+                    matchId={match.id}
+                    sportSlug={sport}
+                    homeTeamName={match.homeTeam.name}
+                    awayTeamName={match.awayTeam.name}
+                    matchStatus={match.status}
+                    variant="inline"
+                  />
+                ) : null}
+              </div>
+            ))}
+          </section>
+
+          <section className="space-y-3 border-t border-zinc-800 pt-6">
+            <div>
+              <h2 className="text-base font-black text-white">
+                Seus palpites salvos
+              </h2>
+              <p className="text-xs text-zinc-500">
+                {savedMatchPredictions.length} jogo
+                {savedMatchPredictions.length !== 1 ? "s" : ""} nesta série
+              </p>
+            </div>
+
+            {savedMatchPredictions.length === 0 ? (
+              <p className="py-4 text-center text-sm text-zinc-500">
+                Nenhum palpite de jogo salvo ainda.
+              </p>
+            ) : (
+              savedMatchPredictions.map(({ match, prediction }) => (
+                <div
+                  key={match.id}
+                  className="space-y-3 rounded-2xl border border-[#006b3f]/30 bg-[#006b3f]/5 p-4"
+                >
+                  <MatchCard match={match} compact />
+                  {canBet ? (
+                    <MatchPredictionForm
+                      matchId={match.id}
+                      sportSlug={sport}
+                      homeTeamName={match.homeTeam.name}
+                      awayTeamName={match.awayTeam.name}
+                      matchStatus={match.status}
+                      existingPrediction={prediction}
+                      variant="inline"
+                    />
+                  ) : (
+                    <SavedPredictionSummary
+                      match={match}
+                      prediction={prediction}
+                    />
+                  )}
+                </div>
+              ))
+            )}
+          </section>
+        </TabsContent>
+
+        <TabsContent value="temporada">
+          {!isLoggedIn ? (
+            <p className="text-sm text-zinc-400">
+              Faça login para palpitar na temporada.
+            </p>
+          ) : (
+            <SeasonPicksPanel
+              sport={sport}
+              series={series}
+              isBasketball={isBasketball}
+              canBet={canBet}
+              loadingPlayers={loadingPlayers}
+              teamOptions={liveTeams}
+              scorerOptions={liveScorers}
+              cardOptions={liveCards}
+              {...(champion ? { champion } : {})}
+              {...(topScorer ? { topScorer } : {})}
+              {...(topCards ? { topCards } : {})}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function SavedPredictionSummary({
+  match,
+  prediction,
+}: {
+  match: MatchWithTeams;
+  prediction: MatchPredictionView;
+}) {
+  const winner =
+    prediction.result === "home"
+      ? match.homeTeam.name
+      : prediction.result === "away"
+        ? match.awayTeam.name
+        : "Empate";
+
+  return (
+    <div className="grid gap-2 rounded-lg bg-zinc-900/60 p-3 text-sm sm:grid-cols-2">
+      <p>
+        <span className="text-zinc-400">Vencedor:</span>{" "}
+        <span className="text-white">{winner}</span>
+      </p>
+      {prediction.homeScore != null && prediction.awayScore != null && (
+        <p>
+          <span className="text-zinc-400">Placar:</span>{" "}
+          <span className="text-white">
+            {prediction.homeScore} × {prediction.awayScore}
+          </span>
+        </p>
+      )}
+      {prediction.homeFouls != null && (
+        <p>
+          <span className="text-zinc-400">Faltas:</span>{" "}
+          <span className="text-white">
+            {prediction.homeFouls} / {prediction.awayFouls ?? "—"}
+          </span>
+        </p>
+      )}
+      {prediction.homeCards != null && (
+        <p>
+          <span className="text-zinc-400">Cartões:</span>{" "}
+          <span className="text-white">
+            {prediction.homeCards} / {prediction.awayCards ?? "—"}
+          </span>
+        </p>
+      )}
     </div>
   );
 }

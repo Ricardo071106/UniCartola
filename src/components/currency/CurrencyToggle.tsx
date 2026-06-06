@@ -7,14 +7,14 @@ import type { CurrencyMode } from "@/lib/currency/mode";
 
 interface CurrencyToggleProps {
   mode: CurrencyMode;
-  playBalance?: number;
+  totalPoints?: number;
   realBalance?: number;
   compact?: boolean;
 }
 
 export function CurrencyToggle({
   mode,
-  playBalance,
+  totalPoints,
   realBalance,
   compact = false,
 }: CurrencyToggleProps) {
@@ -27,10 +27,10 @@ export function CurrencyToggle({
     });
   }
 
-  const balance =
+  const display =
     mode === "play"
-      ? (playBalance ?? 10000).toLocaleString("pt-BR")
-      : (realBalance ?? 0).toLocaleString("pt-BR");
+      ? `${(totalPoints ?? 0).toLocaleString("pt-BR")} pts`
+      : `${(realBalance ?? 0).toLocaleString("pt-BR")} créditos`;
 
   return (
     <div
@@ -51,7 +51,7 @@ export function CurrencyToggle({
               : "text-zinc-400 hover:text-white"
           )}
         >
-          Sem dinheiro
+          Gratuito
         </button>
         <button
           type="button"
@@ -69,8 +69,8 @@ export function CurrencyToggle({
       </div>
       {!compact && (
         <p className="text-center text-[11px] text-zinc-500">
-          Saldo {mode === "play" ? "fichas" : "real"}:{" "}
-          <span className="font-bold text-white">{balance}</span>
+          {mode === "play" ? "Pontos no ranking" : "Saldo real"}:{" "}
+          <span className="font-bold text-white">{display}</span>
         </p>
       )}
     </div>

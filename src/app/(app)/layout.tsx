@@ -11,11 +11,11 @@ export default async function AppLayout({
   const session = await getSession();
   const currencyMode = await getCurrencyMode();
 
-  let playBalance = 10000;
+  let totalPoints = 0;
   let realBalance = 0;
   if (session) {
     const balances = await getUserBalances(session.userId);
-    playBalance = balances.playBalance;
+    totalPoints = balances.totalPoints;
     realBalance = balances.realBalance;
   }
 
@@ -23,7 +23,7 @@ export default async function AppLayout({
     <AppShell
       session={session}
       currencyMode={currencyMode}
-      playBalance={playBalance}
+      totalPoints={totalPoints}
       realBalance={realBalance}
     >
       {children}
