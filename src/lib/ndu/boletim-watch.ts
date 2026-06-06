@@ -27,6 +27,9 @@ export async function syncIfNewBoletim(year = 2026): Promise<boolean> {
 
   if (stored?.value === latestId) return false;
 
+  const { runScheduledNduSync } = await import("./scheduled-sync");
+  await runScheduledNduSync({ syncScorers: false, scorerLimit: 0 });
+
   await db
     .insert(syncMetadata)
     .values({ key: METADATA_KEY, value: latestId })
@@ -35,7 +38,5 @@ export async function syncIfNewBoletim(year = 2026): Promise<boolean> {
       set: { value: latestId, updatedAt: new Date() },
     });
 
-  const { runFullScrape } = await import("./sync");
-  await runFullScrape({ syncScorers: false, scorerLimit: 0 });
   return true;
 }

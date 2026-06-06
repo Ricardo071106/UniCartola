@@ -44,7 +44,16 @@ Implementação em `src/lib/ndu/parser.ts` e `src/lib/ndu/sync.ts`.
 
 ## Agendamento
 
+**Automático no Render** (sem Shell manual):
+
+1. A cada deploy/restart → sync em background (`render-start.sh`)
+2. A cada 6h enquanto o serviço estiver ligado → `ndu-cron-sync.ts` (variável `NDU_SYNC_INTERVAL_SECONDS`)
+
+**Plano free** (app dorme após inatividade): configure também um cron externo gratuito (ex. [cron-job.org](https://cron-job.org)) 2–4×/dia:
+
 ```bash
-curl -X POST https://seu-app.onrender.com/api/cron/scrape \
+curl -X GET https://unicartola.onrender.com/api/cron/scrape \
   -H "Authorization: Bearer $CRON_SECRET"
 ```
+
+Defina `CRON_SECRET` no Environment do Render. A rota responde `202` e roda o sync em background (~3–5 min).

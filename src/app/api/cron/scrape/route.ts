@@ -1,25 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
+import { runScheduledNduSync } from "@/lib/ndu/scheduled-sync";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
+
+function isAuthorized(request: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET?.trim();
+  if (!secret) return process.env.NODE_ENV !== "production";
+
+  const auth = request.headers.get("authorization");
+  return auth === `Bearer ${secret}`;
+}
 
 export async function POST(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const auth = request.headers.get("authorization");
-
-  if (secret && auth !== `Bearer ${secret}`) {
+  if (!isAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const { runFullScrape } = await import("@/lib/ndu/sync");
-    const result = await runFullScrape();
-    return NextResponse.json(result);
-  } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Scrape failed" },
-      { status: 500 }
-    );
+  if (!process.env.DATABASE_URL?.trim()) {
+    return NextResponse.json({ error: "DATABASE_URL não configurada" }, { status: 503 });
   }
+
+  void runScheduledNduSync().catch((e) => {
+    console.error("[api/cron/scrape]", e);
+  });
+
+  return NextResponse.json(
+    { ok: true, message: "Sync NDU iniciado em background" },
+    { status: 202 }
+  );
 }
 
 export async function GET(request: NextRequest) {
