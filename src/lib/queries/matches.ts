@@ -8,11 +8,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, gte, lte, desc, asc, inArray, type SQL } from "drizzle-orm";
 import type { MatchWithTeams, SportSlug } from "@/types";
-import {
-  matchBelongsToSeries,
-  matchSeriesSql,
-  parseSeriesLetter,
-} from "@/lib/ndu/series";
+import { matchSeriesSql } from "@/lib/ndu/series";
 import { realMatchesOnly } from "./match-filters";
 import {
   startOfDayBrazil,
@@ -283,53 +279,30 @@ export async function getMatchesByFilter(options: {
   return enrichMatches(rows);
 }
 
-/** Jogos palpitráveis para a tela de Palpites. */
+/** Jogos palpitráveis para a tela de Palpites (somente futuros / ao vivo). */
 export async function getPalpitesUpcomingMatches(options: {
   sport?: SportSlug;
   series: string;
 }): Promise<MatchWithTeams[]> {
-  const db = requireDb();
-  const sportFilters = await buildSportSeriesConditions({
-    sport: options.sport,
+  const { isMatchPredictionOpen } = await import("@/lib/palpites/match-locks");
+
+  const scope = {
+    ...(options.sport ? { sport: options.sport } : {}),
+    series: options.series,
+  };
+
+  const rows = await getMatchesByFilter({
+    tab: "upcoming",
+    ...scope,
   });
-  const targetSeries = parseSeriesLetter(options.series);
 
-  const rows = await db
-    .select()
-    .from(matches)
-    .where(
-      and(
-        realMatchesOnly(),
-        inArray(matches.status, ["scheduled", "live"]),
-        ...sportFilters
-      )
-    )
-    .orderBy(asc(matches.scheduledAt))
-    .limit(500);
-
-  let filtered = rows.filter((row) =>
-    matchBelongsToSeries(row.series, targetSeries, row.externalKey)
-  );
-
-  if (filtered.length === 0) {
-    filtered = rows.filter((row) =>
-      matchBelongsToSeries(row.series, targetSeries, row.externalKey, {
-        includeUnknown: true,
-      })
-    );
-  }
-
-  if (filtered.length === 0 && options.sport) {
-    const fromFilter = await getMatchesByFilter({
-      tab: "upcoming",
-      sport: options.sport,
-    });
-    return fromFilter.filter((m) =>
-      matchBelongsToSeries(m.series, targetSeries, null, {
-        includeUnknown: true,
-      })
-    );
-  }
-
-  return enrichMatches(filtered);
+  return rows.filter((match) => {
+    if (match.homeScore != null && match.awayScore != null) return false;
+    if (match.status === "live") return true;
+    if (match.status !== "scheduled") return false;
+    return isMatchPredictionOpen({
+      status: match.status,
+      scheduledAt: match.scheduledAt,
+    }).open;
+  });
 }

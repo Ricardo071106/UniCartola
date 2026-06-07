@@ -4,7 +4,7 @@ import { matches, sports, seasons, universities, athletics } from "@/lib/db/sche
 import { and, eq, inArray } from "drizzle-orm";
 import { isPlayoffPhase, normalizePlayoffPhase } from "@/lib/ndu/playoff-phases";
 import { realMatchesOnly } from "./match-filters";
-import { resolvePlayoffWinner } from "@/lib/ndu/playoff-winner";
+import { resolvePlayoffWinner, displayPlayoffWinnerSide } from "@/lib/ndu/playoff-winner";
 import { normalizeSeriesLabel } from "@/lib/ndu/series";
 import { modalityToSportSlug, normalizeTeamName } from "@/lib/ndu/normalize";
 
@@ -100,22 +100,91 @@ function matchQuality(m: PlayoffMatch): number {
   return score;
 }
 
-function matchMergeKey(match: PlayoffMatch): string {
-  if (match.id && !match.id.startsWith("boletim-") && !match.id.startsWith("jogos-")) {
-    return match.id;
+function finalizePlayoffMatch(match: PlayoffMatch): PlayoffMatch {
+  const winner = displayPlayoffWinnerSide(match);
+  if (winner === "home" || winner === "away") {
+    return { ...match, winnerSide: winner };
   }
-  const phase = normalizePlayoffPhase(match.phase);
-  const home = normalizeTeamName(match.homeName);
-  const away = normalizeTeamName(match.awayName);
-  const scoreKey = `${match.homeScore ?? "s"}:${match.awayScore ?? "s"}`;
+  if (match.winnerSide === "draw") {
+    return { ...match, winnerSide: null };
+  }
+  return match;
+}
 
-  if (away === "a definir" || away.length < 2) {
-    return `${phase}:${home}:${scoreKey}`;
+function combinePlayoffMatches(
+  a: PlayoffMatch,
+  b: PlayoffMatch
+): PlayoffMatch {
+  const primary = matchQuality(b) >= matchQuality(a) ? b : a;
+  const secondary = primary === a ? b : a;
+  const merged: PlayoffMatch = {
+    ...primary,
+    homeName:
+      primary.homeName !== "A definir" ? primary.homeName : secondary.homeName,
+    awayName:
+      primary.awayName !== "A definir" ? primary.awayName : secondary.awayName,
+    homeLogoUrl: primary.homeLogoUrl ?? secondary.homeLogoUrl,
+    awayLogoUrl: primary.awayLogoUrl ?? secondary.awayLogoUrl,
+    winnerSide: primary.winnerSide ?? secondary.winnerSide,
+    winnerMethod: primary.winnerMethod ?? secondary.winnerMethod,
+    status:
+      primary.status === "finished" || secondary.status === "finished"
+        ? "finished"
+        : primary.status,
+  };
+  return finalizePlayoffMatch(merged);
+}
+
+function canonicalPlayoffKey(match: PlayoffMatch): string {
+  const phase = normalizePlayoffPhase(match.phase);
+  const hs = match.homeScore ?? "s";
+  const as = match.awayScore ?? "s";
+  const names = [match.homeName, match.awayName]
+    .map((n) => normalizeTeamName(n))
+    .filter((n) => n && n !== "a definir")
+    .sort()
+    .join("|");
+  return `${phase}:${hs}:${as}:${names || "open"}`;
+}
+
+function shouldMergePlayoffDuplicate(a: PlayoffMatch, b: PlayoffMatch): boolean {
+  if (normalizePlayoffPhase(a.phase) !== normalizePlayoffPhase(b.phase)) {
+    return false;
   }
-  if (home === "a definir" || home.length < 2) {
-    return `${phase}:${away}:${scoreKey}`;
+  if (a.homeScore !== b.homeScore || a.awayScore !== b.awayScore) {
+    return false;
   }
-  return `${phase}:${home}:${away}:${scoreKey}`;
+  if (a.homeScore == null || a.awayScore == null) return false;
+
+  const teamsA = [a.homeName, a.awayName]
+    .map((n) => normalizeTeamName(n))
+    .filter((n) => n && n !== "a definir");
+  const teamsB = [b.homeName, b.awayName]
+    .map((n) => normalizeTeamName(n))
+    .filter((n) => n && n !== "a definir");
+  if (teamsA.length === 0 || teamsB.length === 0) return false;
+
+  return teamsA.some((team) => teamsB.includes(team));
+}
+
+function collapsePlayoffDuplicates(matches: PlayoffMatch[]): PlayoffMatch[] {
+  const collapsed: PlayoffMatch[] = [];
+  const used = new Set<number>();
+
+  for (let i = 0; i < matches.length; i++) {
+    if (used.has(i)) continue;
+    let merged = finalizePlayoffMatch(matches[i]);
+    for (let j = i + 1; j < matches.length; j++) {
+      if (used.has(j)) continue;
+      if (shouldMergePlayoffDuplicate(merged, matches[j])) {
+        merged = combinePlayoffMatches(merged, matches[j]);
+        used.add(j);
+      }
+    }
+    collapsed.push(merged);
+  }
+
+  return collapsed;
 }
 
 function mergeBrackets(
@@ -125,15 +194,19 @@ function mergeBrackets(
   if (all.length === 0) return null;
 
   const best = new Map<string, PlayoffMatch>();
-  all.forEach((match) => {
-    const key = matchMergeKey(match);
+  for (const match of all) {
+    const key = canonicalPlayoffKey(match);
     const existing = best.get(key);
-    if (!existing || matchQuality(match) > matchQuality(existing)) {
-      best.set(key, match);
+    if (!existing) {
+      best.set(key, finalizePlayoffMatch(match));
+    } else {
+      best.set(key, combinePlayoffMatches(existing, match));
     }
-  });
+  }
 
-  return buildBracketFromMatches([...best.values()]);
+  return buildBracketFromMatches(
+    collapsePlayoffDuplicates([...best.values()])
+  );
 }
 
 function buildBracketFromMatches(playoffMatches: PlayoffMatch[]): PlayoffBracket {
@@ -199,7 +272,7 @@ async function rowsToPlayoffMatches(
       const date =
         parseBoletimDate(row.dateLabel, year) ?? new Date(year, 0, 1);
 
-      return {
+      return finalizePlayoffMatch({
         id: `boletim-${row.series}-${phase}-${index}`,
         phase,
         scheduledAt: date,
@@ -212,7 +285,7 @@ async function rowsToPlayoffMatches(
         status: row.isFinished ? ("finished" as const) : ("scheduled" as const),
         winnerSide: winnerSide(homeScore, awayScore, extras, true),
         winnerMethod: winnerMethod(homeScore, awayScore, extras, true),
-      };
+      });
     })
   );
 }
@@ -242,7 +315,7 @@ async function getBoletimPlayoffRows(
   return unstable_cache(
     () => loadBoletimPlayoffRows(sportSlug, series, year),
     ["boletim-playoff-rows", sportSlug, series, String(year)],
-    { revalidate: 1800 }
+    { revalidate: 600 }
   )();
 }
 
@@ -342,7 +415,7 @@ async function getPlayoffBracketFromDb(
     const phase = normalizePlayoffPhase(m.groupName ?? "");
     const win = winnerSide(m.homeScore, m.awayScore, {}, true);
 
-    return {
+    return finalizePlayoffMatch({
       id: m.id,
       phase,
       scheduledAt: m.scheduledAt,
@@ -355,7 +428,7 @@ async function getPlayoffBracketFromDb(
       status: m.status,
       winnerSide: win,
       winnerMethod: winnerMethod(m.homeScore, m.awayScore, {}, true),
-    };
+    });
   });
 
   return buildBracketFromMatches(playoffMatches);
@@ -415,7 +488,14 @@ async function getPlayoffBracketFromNduJogos(
       const scheduledAt =
         parseNduMatchDateTime(row.dateLabel, year) ?? new Date(year, 0, 1);
 
-      return {
+      const extras = {
+        overtimeHome: row.overtimeHomeScore ?? null,
+        overtimeAway: row.overtimeAwayScore ?? null,
+        penaltyHome: row.penaltyHomeScore ?? null,
+        penaltyAway: row.penaltyAwayScore ?? null,
+      };
+
+      return finalizePlayoffMatch({
         id: row.nduMatchId ? `ndu:${row.nduMatchId}` : `jogos-${series}-${phase}-${index}`,
         phase,
         scheduledAt,
@@ -426,29 +506,9 @@ async function getPlayoffBracketFromNduJogos(
         homeScore,
         awayScore,
         status: row.isFinished ? ("finished" as const) : ("scheduled" as const),
-        winnerSide: winnerSide(
-          homeScore,
-          awayScore,
-          {
-            overtimeHome: row.overtimeHomeScore ?? null,
-            overtimeAway: row.overtimeAwayScore ?? null,
-            penaltyHome: row.penaltyHomeScore ?? null,
-            penaltyAway: row.penaltyAwayScore ?? null,
-          },
-          true
-        ),
-        winnerMethod: winnerMethod(
-          homeScore,
-          awayScore,
-          {
-            overtimeHome: row.overtimeHomeScore ?? null,
-            overtimeAway: row.overtimeAwayScore ?? null,
-            penaltyHome: row.penaltyHomeScore ?? null,
-            penaltyAway: row.penaltyAwayScore ?? null,
-          },
-          true
-        ),
-      };
+        winnerSide: winnerSide(homeScore, awayScore, extras, true),
+        winnerMethod: winnerMethod(homeScore, awayScore, extras, true),
+      });
     })
   );
 
@@ -480,7 +540,7 @@ export async function getPlayoffBracketWithBoletim(
         withTimeout(getPlayoffBracketFromBoletim(sportSlug, series), 10000, null),
       ]);
 
-      return mergeBrackets(fromDb, fromNdu, fromBoletim);
+      return mergeBrackets(fromBoletim, fromNdu, fromDb);
     })(),
     timeoutMs,
     null

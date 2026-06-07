@@ -74,10 +74,20 @@ const PEN_PATTERNS = [
 ];
 
 export function extractPlayoffExtraScores(line: string): PlayoffScoreExtras {
+  const text = line.replace(/\s+/g, " ");
   const extras: PlayoffScoreExtras = {};
 
-  for (const pattern of OT_PATTERNS) {
-    const m = line.match(pattern);
+  const otPatterns = [
+    ...OT_PATTERNS,
+    /(?:Prorrogação|Prorrogacao|Prorrog\.?)\s*[:\s]+(\d{1,2})\s*[xX×]\s*(\d{1,2})/i,
+  ];
+  const penPatterns = [
+    ...PEN_PATTERNS,
+    /(?:Pênaltis|Penaltis|Pênalti)\s*[:\s]+(\d{1,2})\s*[xX×]\s*(\d{1,2})/i,
+  ];
+
+  for (const pattern of otPatterns) {
+    const m = text.match(pattern);
     if (m) {
       extras.overtimeHome = parseInt(m[1], 10);
       extras.overtimeAway = parseInt(m[2], 10);
@@ -85,8 +95,8 @@ export function extractPlayoffExtraScores(line: string): PlayoffScoreExtras {
     }
   }
 
-  for (const pattern of PEN_PATTERNS) {
-    const m = line.match(pattern);
+  for (const pattern of penPatterns) {
+    const m = text.match(pattern);
     if (m) {
       extras.penaltyHome = parseInt(m[1], 10);
       extras.penaltyAway = parseInt(m[2], 10);

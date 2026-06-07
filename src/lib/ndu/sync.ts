@@ -9,7 +9,7 @@ import {
   teamMappingQueue,
   universities,
 } from "@/lib/db/schema";
-import { eq, isNotNull } from "drizzle-orm";
+import { eq, isNotNull, and } from "drizzle-orm";
 import { normalizeSeriesLabel, inferSeriesFromExternalKey } from "./series";
 import type { ParsedMatchRow } from "./parser";
 import { fetchAllNduJogosRows } from "./jogos-fetch";
@@ -371,9 +371,8 @@ function resolveMatchStatus(
     row.isFinished &&
     row.homeScore != null &&
     row.awayScore != null;
-  const isFuture = scheduledAt.getTime() > Date.now();
-  if (!hasScore) return "scheduled";
-  return isFuture ? "scheduled" : "finished";
+  if (hasScore) return "finished";
+  return "scheduled";
 }
 
 async function upsertMatchRow(
@@ -641,7 +640,28 @@ async function ingestMatchRows(
     console.log(`[ndu] Séries normalizadas: ${seriesBackfilled}`);
   }
 
+  const staleFixed = await fixScheduledMatchesWithScores();
+  if (staleFixed > 0) {
+    console.log(`[ndu] Jogos com placar marcados como encerrados: ${staleFixed}`);
+  }
+
   return { totalCreated, totalUpdated, scorersSynced };
+}
+
+async function fixScheduledMatchesWithScores(): Promise<number> {
+  const db = requireDb();
+  const rows = await db
+    .update(matches)
+    .set({ status: "finished", updatedAt: new Date() })
+    .where(
+      and(
+        eq(matches.status, "scheduled"),
+        isNotNull(matches.homeScore),
+        isNotNull(matches.awayScore)
+      )
+    )
+    .returning({ id: matches.id });
+  return rows.length;
 }
 
 export async function runFullScrape(options: ScrapeOptions = {}) {
