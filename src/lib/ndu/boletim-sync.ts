@@ -5,9 +5,9 @@ import { parseBoletimIndex, parseBoletimPdfText } from "./boletim-parser";
 import type { ParsedMatchRow } from "./parser";
 import { withTimeout } from "@/lib/utils/timeout";
 
-const BOLETIM_HISTORY_LIMIT = 3;
-const PDF_FETCH_TIMEOUT_MS = 6000;
-const BOLETIM_PARSE_TIMEOUT_MS = 15000;
+const BOLETIM_HISTORY_LIMIT = 8;
+const PDF_FETCH_TIMEOUT_MS = 10000;
+const BOLETIM_PARSE_TIMEOUT_MS = 35000;
 
 export async function fetchLatestBoletimPdf(
   year = 2026
@@ -67,12 +67,19 @@ async function parseBoletimMatchesInner(
   const rows: ParsedMatchRow[] = [];
 
   for (const pdfData of pdfs) {
-    const parsed = await pdf(pdfData.buffer);
-    for (const row of parseBoletimPdfText(parsed.text)) {
-      const key = `${row.modality}:${row.series}:${row.group}:${row.homeTeamRaw}:${row.awayTeamRaw}:${row.homeScore}:${row.awayScore}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      rows.push(row);
+    try {
+      const parsed = await pdf(pdfData.buffer);
+      for (const row of parseBoletimPdfText(parsed.text)) {
+        const key = `${row.modality}:${row.series}:${row.group}:${row.homeTeamRaw}:${row.awayTeamRaw}:${row.homeScore ?? "s"}:${row.awayScore ?? "s"}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        rows.push(row);
+      }
+    } catch (error) {
+      console.error(
+        `[boletim] Falha ao ler PDF ${pdfData.entryId}:`,
+        error instanceof Error ? error.message : error
+      );
     }
   }
 

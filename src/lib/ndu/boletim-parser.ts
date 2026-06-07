@@ -198,6 +198,19 @@ function parsePlayoffTeamSide(raw: string): string {
   return trimTeamLabel(playoffTeamLabel(raw, cleaned));
 }
 
+const PLAYOFF_DATE_TIME_RE =
+  /^(\d{2}\/\d{2})(?:\s+(\d{1,2}h\d{0,2}(?:min)?|\d{1,2}:\d{2}))?\s*/i;
+
+function parsePlayoffHeader(line: string): {
+  dateLabel: string;
+  rest: string;
+} | null {
+  const m = line.match(PLAYOFF_DATE_TIME_RE);
+  if (!m) return null;
+  const dateLabel = m[2] ? `${m[1]} ${m[2]}` : m[1];
+  return { dateLabel, rest: line.slice(m[0].length) };
+}
+
 export function parsePlayoffRecord(
   raw: string
 ): Omit<ParsedMatchRow, "modality" | "series"> | null {
@@ -208,8 +221,8 @@ export function parsePlayoffRecord(
   if (!phaseMatch) return null;
   const phase = normalizePlayoffPhase(phaseMatch[1]);
 
-  const dateMatch = line.match(/^(\d{2}\/\d{2})\s+(\S+)\s+/);
-  if (!dateMatch) return null;
+  const header = parsePlayoffHeader(line);
+  if (!header) return null;
 
   const scoreMatch = line.match(/(\d{1,2})\s+X\s+(\d{1,2})/i);
   const scheduledOnly =
@@ -236,8 +249,8 @@ export function parsePlayoffRecord(
   }
 
   const homePart = beforeScore
-    .replace(/^(\d{2}\/\d{2})\s+(\S+)\s+/, "")
-    .replace(/^[\wÀ-ú\s-]+?\s+(8ªs|4ªs|Semi|Final)\s*/i, "")
+    .replace(PLAYOFF_DATE_TIME_RE, "")
+    .replace(/^[\wÀ-ú\s-]+?\s+(8ªs|4ªs|Oitavas|Quartas|Semi|Final)\s*(\(\d+\))?\s*/i, "")
     .trim();
 
   const homeTeamRaw = parsePlayoffTeamSide(homePart);
@@ -255,11 +268,11 @@ export function parsePlayoffRecord(
   const extras = extractPlayoffExtraScores(line);
 
   const venueMatch = beforeScore.match(
-    /^(\d{2}\/\d{2})\s+(\S+)\s+([\wÀ-ú\s-]+?)\s+(8ªs|4ªs|Oitavas|Quartas|Semi|Final)/i
+    /^(\d{2}\/\d{2})(?:\s+\S+)?\s+([\wÀ-ú\s-]+?)\s+(8ªs|4ªs|Oitavas|Quartas|Semi|Final)/i
   );
 
   return {
-    dateLabel: `${dateMatch[1]} ${dateMatch[2]}`,
+    dateLabel: header.dateLabel,
     group: phase,
     homeTeamRaw,
     awayTeamRaw,

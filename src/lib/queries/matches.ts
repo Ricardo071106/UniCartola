@@ -285,24 +285,51 @@ export async function getPalpitesUpcomingMatches(options: {
   series: string;
 }): Promise<MatchWithTeams[]> {
   const { isMatchPredictionOpen } = await import("@/lib/palpites/match-locks");
+  const { withTimeout } = await import("@/lib/utils/timeout");
 
   const scope = {
     ...(options.sport ? { sport: options.sport } : {}),
     series: options.series,
   };
 
-  const rows = await getMatchesByFilter({
+  const filterOpen = (rows: MatchWithTeams[]) =>
+    rows.filter((match) => {
+      if (match.homeScore != null && match.awayScore != null) return false;
+      if (match.status === "live") return true;
+      if (match.status !== "scheduled") return false;
+      return isMatchPredictionOpen({
+        status: match.status,
+        scheduledAt: match.scheduledAt,
+      }).open;
+    });
+
+  let rows = await getMatchesByFilter({
     tab: "upcoming",
     ...scope,
   });
+  let filtered = filterOpen(rows);
 
-  return rows.filter((match) => {
-    if (match.homeScore != null && match.awayScore != null) return false;
-    if (match.status === "live") return true;
-    if (match.status !== "scheduled") return false;
-    return isMatchPredictionOpen({
-      status: match.status,
-      scheduledAt: match.scheduledAt,
-    }).open;
-  });
+  if (filtered.length === 0) {
+    await withTimeout(
+      (async () => {
+        const { ensureBoletimScheduledMatches } = await import(
+          "@/lib/ndu/boletim-scheduled-sync"
+        );
+        await ensureBoletimScheduledMatches({
+          ...(options.sport ? { sport: options.sport } : {}),
+          series: options.series,
+        });
+      })(),
+      25000,
+      undefined
+    );
+
+    rows = await getMatchesByFilter({
+      tab: "upcoming",
+      ...scope,
+    });
+    filtered = filterOpen(rows);
+  }
+
+  return filtered;
 }

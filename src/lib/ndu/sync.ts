@@ -10,7 +10,7 @@ import {
   universities,
 } from "@/lib/db/schema";
 import { eq, isNotNull, and } from "drizzle-orm";
-import { normalizeSeriesLabel, inferSeriesFromExternalKey } from "./series";
+import { normalizeSeriesLabel, inferSeriesFromExternalKey, matchBelongsToSeries, parseSeriesLetter } from "./series";
 import type { ParsedMatchRow } from "./parser";
 import { fetchAllNduJogosRows } from "./jogos-fetch";
 import { fetchNduHtml, NDU_JOGOS_URL } from "./fetch";
@@ -268,10 +268,24 @@ class NduSyncContext {
     const homeNorm = this.normalizeTeamName(homeTeamName);
     const awayNorm = this.normalizeTeamName(awayTeamName);
     const candidates = this.matchesBySportId.get(sportId) ?? [];
+    const targetSeries = parseSeriesLetter(row.series);
 
     return (
       candidates.find((m) => {
-        if (m.series !== row.series) return false;
+        if (
+          !matchBelongsToSeries(m.series, targetSeries, m.externalKey, {
+            includeUnknown: true,
+          })
+        ) {
+          return false;
+        }
+
+        // Não fundir jogo futuro do boletim com partida encerrada de outra fase.
+        if (!row.isFinished && m.status === "finished") {
+          if (m.groupName !== row.group) return false;
+          if (m.homeScore != null && m.awayScore != null) return false;
+        }
+
         return teamsMatch(
           m,
           homeNorm,
@@ -437,6 +451,7 @@ async function upsertMatchRow(
       existing.homeScore !== row.homeScore ||
       existing.awayScore !== row.awayScore ||
       existing.status !== status ||
+      existing.scheduledAt.getTime() !== scheduledAt.getTime() ||
       existing.externalKey !== externalKey ||
       existing.groupName !== row.group ||
       existing.sportId !== sportId ||
@@ -645,7 +660,80 @@ async function ingestMatchRows(
     console.log(`[ndu] Jogos com placar marcados como encerrados: ${staleFixed}`);
   }
 
+  try {
+    const { ensureBoletimScheduledMatches } = await import(
+      "./boletim-scheduled-sync"
+    );
+    const boletimScheduled = await ensureBoletimScheduledMatches();
+    if (boletimScheduled > 0) {
+      console.log(`[ndu] Boletim agendados sincronizados: ${boletimScheduled}`);
+    }
+  } catch (e) {
+    errors.push(
+      `boletim-scheduled: ${e instanceof Error ? e.message : String(e)}`
+    );
+  }
+
   return { totalCreated, totalUpdated, scorersSynced };
+}
+
+/** Grava linhas parseadas (ex.: boletim agendado) sem rodar scrape completo. */
+export async function ingestParsedMatchRows(
+  rows: ParsedMatchRow[]
+): Promise<{ created: number; updated: number }> {
+  if (rows.length === 0) return { created: 0, updated: 0 };
+
+  const db = requireDb();
+  const { modalityToSportSlug } = await import("./parser");
+  const sportRows = await db.select().from(sports);
+  const sportBySlug = new Map(sportRows.map((s) => [s.slug, s]));
+
+  const [activeSeason] = await db
+    .select()
+    .from(seasons)
+    .where(eq(seasons.isActive, true))
+    .limit(1);
+  const year = activeSeason?.year ?? new Date().getFullYear();
+  const seasonId = activeSeason?.id ?? null;
+
+  const sortedRows = [...rows].sort((a, b) => {
+    if (a.isFinished === b.isFinished) return 0;
+    return a.isFinished ? -1 : 1;
+  });
+
+  const ctx = new NduSyncContext();
+  await ctx.init();
+
+  let created = 0;
+  let updated = 0;
+
+  for (const row of sortedRows) {
+    const slug = modalityToSportSlug(row.modality);
+    if (!slug || !["futebol", "futsal", "basquete"].includes(slug)) continue;
+
+    const sport = sportBySlug.get(slug);
+    if (!sport) continue;
+
+    try {
+      const result = await upsertMatchRow(
+        row,
+        sport.id,
+        slug,
+        year,
+        seasonId,
+        ctx
+      );
+      if (result.created) created++;
+      if (result.updated) updated++;
+    } catch (e) {
+      console.error(
+        `[ndu] ingest row ${row.dateLabel}:`,
+        e instanceof Error ? e.message : e
+      );
+    }
+  }
+
+  return { created, updated };
 }
 
 async function fixScheduledMatchesWithScores(): Promise<number> {
