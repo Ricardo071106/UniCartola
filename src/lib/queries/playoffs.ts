@@ -5,7 +5,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { isPlayoffPhase, normalizePlayoffPhase } from "@/lib/ndu/playoff-phases";
 import { realMatchesOnly } from "./match-filters";
 import { resolvePlayoffWinner, displayPlayoffWinnerSide } from "@/lib/ndu/playoff-winner";
-import { normalizeSeriesLabel } from "@/lib/ndu/series";
+import { matchSeriesSql, normalizeSeriesLabel } from "@/lib/ndu/series";
 import { modalityToSportSlug, normalizeTeamName } from "@/lib/ndu/normalize";
 
 type BoletimPlayoffRow = {
@@ -341,6 +341,31 @@ async function getPlayoffBracketFromBoletim(
   return buildBracketFromMatches(playoffMatches);
 }
 
+function isSeedPlaceholderTeam(name: string | null | undefined): boolean {
+  const t = (name ?? "").toLowerCase();
+  return t.includes("colocado do grupo") || t.includes("melhor ");
+}
+
+function isRealKnockoutRow(
+  row: {
+    groupName: string | null;
+    homeTeamName: string | null;
+    awayTeamName: string | null;
+  },
+  sportSlug: SportSlug
+): boolean {
+  if (!isPlayoffPhase(row.groupName)) return false;
+  const phase = (row.groupName ?? "").trim();
+  if (phase === "Semi" || phase === "Final") return true;
+  if (sportSlug !== "futebol" || (phase !== "Quartas" && phase !== "Oitavas")) {
+    return true;
+  }
+  return (
+    isSeedPlaceholderTeam(row.homeTeamName) ||
+    isSeedPlaceholderTeam(row.awayTeamName)
+  );
+}
+
 async function getPlayoffBracketFromDb(
   sportSlug: SportSlug,
   series: SeriesLetter
@@ -362,12 +387,12 @@ async function getPlayoffBracketFromDb(
       and(
         realMatchesOnly(),
         eq(matches.sportId, sport.id),
-        eq(matches.series, series)
+        matchSeriesSql(series)
       )
     );
 
   const playoffRows = allSeriesMatches.filter((m) =>
-    isPlayoffPhase(m.groupName)
+    isRealKnockoutRow(m, sportSlug)
   );
 
   if (playoffRows.length === 0) return null;

@@ -8,6 +8,11 @@ import {
 import { and, eq, inArray } from "drizzle-orm";
 
 import { isPlayoffPhase } from "@/lib/ndu/playoff-phases";
+import {
+  matchBelongsToSeries,
+  matchSeriesSql,
+  parseSeriesLetter,
+} from "@/lib/ndu/series";
 import { realMatchesOnly } from "./match-filters";
 import type { SportSlug, StandingsEntry } from "@/types";
 
@@ -39,6 +44,32 @@ export function parsePalpitesSport(value?: string | null): PalpitesSportFilter {
   return parseSport(candidate);
 }
 
+function isSeedPlaceholderTeam(name: string | null | undefined): boolean {
+  const t = (name ?? "").toLowerCase();
+  return t.includes("colocado do grupo") || t.includes("melhor ");
+}
+
+/** Mata-mata real vs grupo numérico salvo errado como fase (ex.: "4" → "Quartas"). */
+function countsForStandings(
+  match: {
+    groupName: string | null;
+    homeTeamName: string | null;
+    awayTeamName: string | null;
+  },
+  sportSlug: SportSlug
+): boolean {
+  if (!isPlayoffPhase(match.groupName)) return true;
+  if (sportSlug !== "futebol") return false;
+
+  const phase = (match.groupName ?? "").trim();
+  if (phase !== "Quartas" && phase !== "Oitavas") return false;
+
+  return (
+    !isSeedPlaceholderTeam(match.homeTeamName) &&
+    !isSeedPlaceholderTeam(match.awayTeamName)
+  );
+}
+
 export async function getStandingsBySeries(
   sportSlug: SportSlug,
   series: SeriesLetter
@@ -60,12 +91,19 @@ export async function getStandingsBySeries(
       and(
         realMatchesOnly(),
         eq(matches.sportId, sport.id),
-        eq(matches.series, series),
+        matchSeriesSql(series),
         eq(matches.status, "finished")
       )
     );
 
-  const finished = finishedRows.filter((m) => !isPlayoffPhase(m.groupName));
+  const targetSeries = parseSeriesLetter(series);
+  const finished = finishedRows.filter(
+    (m) =>
+      countsForStandings(m, sportSlug) &&
+      matchBelongsToSeries(m.series, targetSeries, m.externalKey, {
+        includeUnknown: true,
+      })
+  );
 
   if (finished.length === 0) return [];
 

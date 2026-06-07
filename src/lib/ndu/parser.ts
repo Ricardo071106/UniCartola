@@ -101,8 +101,13 @@ function extractNduMatchId(
 }
 
 function normalizeGroupName(group: string): string {
-  if (/^[A-F]$/i.test(group)) return group.toUpperCase();
-  return normalizePlayoffPhase(group);
+  const trimmed = group.trim();
+  if (/^[A-F]$/i.test(trimmed)) return trimmed.toUpperCase();
+  if (/^\d+$/.test(trimmed)) return trimmed;
+  if (/^grupo\s+[a-f0-9]+$/i.test(trimmed)) {
+    return trimmed.replace(/\s+/g, " ");
+  }
+  return normalizePlayoffPhase(trimmed);
 }
 
 export function parseNduJogosPage(html: string): ParsedMatchRow[] {
