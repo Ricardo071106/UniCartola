@@ -1,4 +1,4 @@
-import { getPlayoffBracketWithBoletim } from "@/lib/queries/playoffs";
+import { getPlayoffBracket } from "@/lib/queries/playoffs";
 import { SERIES } from "@/lib/queries/standings";
 import { withTimeout } from "@/lib/utils/timeout";
 import type { SportSlug } from "@/types";
@@ -19,12 +19,11 @@ export async function GET(request: Request) {
 
   try {
     const bracket = await withTimeout(
-      getPlayoffBracketWithBoletim(
+      getPlayoffBracket(
         sport as SportSlug,
-        series as (typeof SERIES)[number],
-        10000
+        series as (typeof SERIES)[number]
       ),
-      11000,
+      8000,
       null
     );
     return Response.json(bracket);

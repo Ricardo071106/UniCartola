@@ -200,7 +200,7 @@ export async function getMatchesByFilter(options: {
   const weekEnd = addDaysBrazil(now, 7);
   const scopeFilters = await buildSportSeriesConditions(options);
   const hasScope = Boolean(options.sport || options.series?.trim());
-  const listLimit = hasScope ? 500 : 150;
+  const listLimit = hasScope ? 200 : 60;
 
   let rows;
 
@@ -285,7 +285,6 @@ export async function getPalpitesUpcomingMatches(options: {
   series: string;
 }): Promise<MatchWithTeams[]> {
   const { isMatchPredictionOpen } = await import("@/lib/palpites/match-locks");
-  const { withTimeout } = await import("@/lib/utils/timeout");
 
   const scope = {
     ...(options.sport ? { sport: options.sport } : {}),
@@ -303,33 +302,9 @@ export async function getPalpitesUpcomingMatches(options: {
       }).open;
     });
 
-  let rows = await getMatchesByFilter({
+  const rows = await getMatchesByFilter({
     tab: "upcoming",
     ...scope,
   });
-  let filtered = filterOpen(rows);
-
-  if (filtered.length === 0) {
-    await withTimeout(
-      (async () => {
-        const { ensureBoletimScheduledMatches } = await import(
-          "@/lib/ndu/boletim-scheduled-sync"
-        );
-        await ensureBoletimScheduledMatches({
-          ...(options.sport ? { sport: options.sport } : {}),
-          series: options.series,
-        });
-      })(),
-      25000,
-      undefined
-    );
-
-    rows = await getMatchesByFilter({
-      tab: "upcoming",
-      ...scope,
-    });
-    filtered = filterOpen(rows);
-  }
-
-  return filtered;
+  return filterOpen(rows);
 }

@@ -58,9 +58,10 @@ export async function fetchRecentBoletimPdfs(
 }
 
 async function parseBoletimMatchesInner(
-  year = 2026
+  year = 2026,
+  pdfLimit = BOLETIM_HISTORY_LIMIT
 ): Promise<{ rows: ParsedMatchRow[]; boletimId: string; title: string } | null> {
-  const pdfs = await fetchRecentBoletimPdfs(year);
+  const pdfs = await fetchRecentBoletimPdfs(year, pdfLimit);
   if (pdfs.length === 0) return null;
 
   const seen = new Set<string>();
@@ -91,10 +92,11 @@ async function parseBoletimMatchesInner(
 }
 
 export async function parseBoletimMatches(
-  year = 2026
+  year = 2026,
+  pdfLimit = BOLETIM_HISTORY_LIMIT
 ): Promise<{ rows: ParsedMatchRow[]; boletimId: string; title: string } | null> {
   return withTimeout(
-    parseBoletimMatchesInner(year),
+    parseBoletimMatchesInner(year, pdfLimit),
     BOLETIM_PARSE_TIMEOUT_MS,
     null
   );

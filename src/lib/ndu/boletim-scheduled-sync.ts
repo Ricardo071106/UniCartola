@@ -16,7 +16,7 @@ export async function ensureBoletimScheduledMatches(options?: {
 }): Promise<number> {
   if (!process.env.DATABASE_URL) return 0;
 
-  const boletim = await withTimeout(parseBoletimMatches(), 25000, null);
+  const boletim = await withTimeout(parseBoletimMatches(undefined, 2), 20000, null);
   if (!boletim?.rows.length) return 0;
 
   const db = requireDb();

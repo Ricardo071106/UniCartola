@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { after } from "next/server";
 import { PalpitesClient } from "./PalpitesClient";
 import { getPalpitesUpcomingMatches } from "@/lib/queries/matches";
 import { getUserMarketPredictions } from "@/lib/queries/market-predictions";
@@ -30,18 +29,6 @@ export default async function PalpitesPage({
   const params = await searchParams;
   const sportFilter = parsePalpitesSport(params.sport);
   const series = parseSeries(params.series);
-
-  after(() => {
-    import("@/lib/ndu/stats-sync")
-      .then(({ syncNduStats }) => syncNduStats())
-      .catch((error) =>
-        console.error("[palpites] sync estatísticas NDU:", error)
-      );
-
-    import("@/lib/ndu/sync-scheduler")
-      .then(({ maybeRunBackgroundSync }) => maybeRunBackgroundSync("page"))
-      .catch((error) => console.error("[palpites] ndu sync:", error));
-  });
 
   const session = await getSession();
   const currencyMode = await getCurrencyMode();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -14,29 +14,55 @@ import type {
   SportSlug,
   StandingsEntry,
 } from "@/types";
+import type { SeriesLetter } from "@/lib/queries/standings";
 
 const SERIES = ["A", "B", "C", "D", "E", "F"] as const;
 
-type Props = {
-  sport: SportSlug;
-  series: (typeof SERIES)[number];
+type HomeData = {
   standings: StandingsEntry[];
   playoffBracket: PlayoffBracketData | null;
   goalScorers: ScorerEntry[];
   pointScorers: ScorerEntry[];
 };
 
-export function HomeDashboard({
-  sport,
-  series,
-  standings,
-  playoffBracket,
-  goalScorers,
-  pointScorers,
-}: Props) {
+function SectionSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <div className="space-y-2 px-4 py-3">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="h-10 animate-pulse rounded-lg bg-zinc-800/80" />
+      ))}
+    </div>
+  );
+}
+
+type Props = {
+  sport: SportSlug;
+  series: SeriesLetter;
+};
+
+export function HomeDashboard({ sport, series }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const [data, setData] = useState<HomeData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+
+    fetch(`/api/home?sport=${sport}&series=${series}`, {
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: HomeData | null) => {
+        if (json) setData(json);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+
+    return () => controller.abort();
+  }, [sport, series]);
 
   function updateParams(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -48,6 +74,10 @@ export function HomeDashboard({
 
   const isBasketball = sport === "basquete";
   const sportLabel = SPORT_ICONS[sport]?.label ?? sport;
+  const standings = data?.standings ?? [];
+  const goalScorers = data?.goalScorers ?? [];
+  const pointScorers = data?.pointScorers ?? [];
+  const playoffBracket = data?.playoffBracket ?? null;
 
   return (
     <div className={cn("space-y-5", isPending && "opacity-80")}>
@@ -113,7 +143,11 @@ export function HomeDashboard({
         </div>
 
         <div className="px-2 pb-2">
-          <StandingsTable entries={standings} />
+          {loading && !data ? (
+            <SectionSkeleton rows={6} />
+          ) : (
+            <StandingsTable entries={standings} />
+          )}
         </div>
       </section>
 
@@ -124,11 +158,15 @@ export function HomeDashboard({
             {sportLabel} · Série {series}
           </p>
         </div>
-        <PlayoffBracket
-          sport={sport}
-          series={series}
-          initialBracket={playoffBracket}
-        />
+        {loading && !data ? (
+          <SectionSkeleton rows={3} />
+        ) : (
+          <PlayoffBracket
+            sport={sport}
+            series={series}
+            initialBracket={playoffBracket}
+          />
+        )}
       </section>
 
       <section className="cartola-card overflow-hidden">
@@ -140,11 +178,15 @@ export function HomeDashboard({
             {sportLabel} · Série {series}
           </p>
         </div>
-        <ScorersTable
-          entries={isBasketball ? pointScorers : goalScorers}
-          label={isBasketball ? "Pontuadores" : "Artilheiros"}
-          unit={isBasketball ? "pts" : "gols"}
-        />
+        {loading && !data ? (
+          <SectionSkeleton rows={5} />
+        ) : (
+          <ScorersTable
+            entries={isBasketball ? pointScorers : goalScorers}
+            label={isBasketball ? "Pontuadores" : "Artilheiros"}
+            unit={isBasketball ? "pts" : "gols"}
+          />
+        )}
       </section>
     </div>
   );

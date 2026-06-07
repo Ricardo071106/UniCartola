@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runScheduledNduSync } from "@/lib/ndu/scheduled-sync";
+import { spawnNduSyncSubprocess } from "@/lib/ndu/spawn-sync";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 function isAuthorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET?.trim();
@@ -21,12 +21,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "DATABASE_URL não configurada" }, { status: 503 });
   }
 
-  void runScheduledNduSync().catch((e) => {
-    console.error("[api/cron/scrape]", e);
-  });
+  const started = spawnNduSyncSubprocess("api/cron/scrape");
 
   return NextResponse.json(
-    { ok: true, message: "Sync NDU iniciado em background" },
+    {
+      ok: true,
+      started,
+      message: started
+        ? "Sync NDU iniciado em subprocesso"
+        : "Sync NDU já em andamento",
+    },
     { status: 202 }
   );
 }

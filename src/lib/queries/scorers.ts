@@ -216,6 +216,13 @@ async function enrichScorers(
   const db = requireDb();
   const teamNames = [...new Set(entries.map((e) => e.teamName).filter(Boolean))];
 
+  if (teamNames.length === 0) {
+    return entries
+      .sort((a, b) => b.total - a.total)
+      .slice(0, limit)
+      .map((e, i) => ({ ...e, rank: i + 1 }));
+  }
+
   const allAthletics = await db.select().from(athletics);
 
   const athByName = new Map<string, (typeof allAthletics)[number]>();

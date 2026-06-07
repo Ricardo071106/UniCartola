@@ -137,11 +137,14 @@ export function createPostgresClient(max = 10) {
     );
   }
 
+  const poolMax = isOnRender() ? Math.min(max, 4) : max;
+
   return postgres(url, {
-    max,
+    max: poolMax,
     prepare: false,
     ssl: url.includes("supabase") ? "require" : false,
-    connect_timeout: 30,
+    connect_timeout: 15,
+    idle_timeout: 20,
   });
 }
 

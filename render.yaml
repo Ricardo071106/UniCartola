@@ -9,6 +9,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "20"
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=460"
       - key: DATABASE_URL
         sync: false
       - key: SUPABASE_REGION
@@ -21,6 +23,8 @@ services:
         generateValue: true
       - key: NDU_SYNC_INTERVAL_SECONDS
         value: "21600"
+      - key: SKIP_NDU_SCRAPE
+        value: "1"
 
   - type: cron
     name: ndu-sync

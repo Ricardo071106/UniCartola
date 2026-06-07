@@ -2,18 +2,23 @@
 
 import { Suspense } from "react";
 import { HomeDashboard } from "@/components/home/HomeDashboard";
-import type { ComponentProps } from "react";
+import type { SportSlug } from "@/types";
+import type { SeriesLetter } from "@/lib/queries/standings";
 
-type Props = ComponentProps<typeof HomeDashboard>;
-
-export function HomeDashboardShell(props: Props) {
+export function HomeDashboardShell({
+  sport,
+  series,
+}: {
+  sport: SportSlug;
+  series: SeriesLetter;
+}) {
   return (
     <Suspense
       fallback={
         <div className="py-12 text-center text-zinc-400">Carregando...</div>
       }
     >
-      <HomeDashboard {...props} />
+      <HomeDashboard sport={sport} series={series} />
     </Suspense>
   );
 }

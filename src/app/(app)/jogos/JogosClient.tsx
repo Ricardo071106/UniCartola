@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MatchCard } from "@/components/match/MatchCard";
 import { MatchPredictionForm } from "@/components/prediction/MatchPredictionForm";
@@ -24,27 +25,55 @@ const tabs = [
 ] as const;
 
 interface JogosClientProps {
-  initialMatches: MatchWithTeams[];
   initialSport?: SportSlug;
   initialTab: (typeof tabs)[number]["id"];
-  isLoggedIn: boolean;
-  canBet: boolean;
-  matchPredictions: Record<string, MatchPredictionView>;
 }
 
 const BETTABLE_TABS = new Set(["upcoming", "today", "tomorrow", "week"]);
 
-export function JogosClient({
-  initialMatches,
-  initialSport,
-  initialTab,
-  isLoggedIn,
-  canBet,
-  matchPredictions,
-}: JogosClientProps) {
+export function JogosClient({ initialSport, initialTab }: JogosClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const showPredictions = BETTABLE_TABS.has(initialTab);
+
+  const [matches, setMatches] = useState<MatchWithTeams[]>([]);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [canBet, setCanBet] = useState(false);
+  const [matchPredictions, setMatchPredictions] = useState<
+    Record<string, MatchPredictionView>
+  >({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+
+    const params = new URLSearchParams({ tab: initialTab });
+    if (initialSport) params.set("sport", initialSport);
+
+    fetch(`/api/jogos?${params.toString()}`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(
+        (
+          json: {
+            matches?: MatchWithTeams[];
+            isLoggedIn?: boolean;
+            canBet?: boolean;
+            matchPredictions?: Record<string, MatchPredictionView>;
+          } | null
+        ) => {
+          if (!json) return;
+          setMatches(json.matches ?? []);
+          setIsLoggedIn(json.isLoggedIn ?? false);
+          setCanBet(json.canBet ?? false);
+          setMatchPredictions(json.matchPredictions ?? {});
+        }
+      )
+      .catch(() => {})
+      .finally(() => setLoading(false));
+
+    return () => controller.abort();
+  }, [initialSport, initialTab]);
 
   function updateParams(sport?: string, tab?: string) {
     const p = new URLSearchParams(searchParams.toString());
@@ -97,48 +126,64 @@ export function JogosClient({
         </TabsList>
         <TabsContent value={initialTab}>
           <div className="mt-2 space-y-4">
-            {initialMatches.map((m) => {
-              const existing = matchPredictions[m.id];
-              const sportSlug = m.sport.slug as SportSlug;
-              const matchOpen = isMatchPredictionOpen({
-                status: m.status,
-                scheduledAt: m.scheduledAt,
-              });
-              const openForBet =
-                showPredictions && isLoggedIn && canBet && matchOpen.open;
+            {loading && (
+              <div className="space-y-3 py-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-24 animate-pulse rounded-xl bg-zinc-800/80"
+                  />
+                ))}
+              </div>
+            )}
+            {!loading &&
+              matches.map((m) => {
+                const existing = matchPredictions[m.id];
+                const sportSlug = m.sport.slug as SportSlug;
+                const matchOpen = isMatchPredictionOpen({
+                  status: m.status,
+                  scheduledAt: m.scheduledAt,
+                });
+                const openForBet =
+                  showPredictions && isLoggedIn && canBet && matchOpen.open;
 
-              return (
-                <div key={m.id} className="space-y-3">
-                  <MatchCard match={m} />
-                  {openForBet && (
-                    <MatchPredictionForm
-                      matchId={m.id}
-                      sportSlug={sportSlug}
-                      homeTeamName={m.homeTeam.name}
-                      awayTeamName={m.awayTeam.name}
-                      matchStatus={m.status}
-                      scheduledAt={m.scheduledAt}
-                      existingPrediction={existing ?? null}
-                      variant="inline"
-                    />
-                  )}
-                  {showPredictions && isLoggedIn && canBet && !matchOpen.open && (
-                    <p className="text-xs text-zinc-500">{matchOpen.message}</p>
-                  )}
-                  {showPredictions && isLoggedIn && !canBet && (
-                    <p className="text-xs text-amber-400">
-                      Inscrição necessária para palpitar no modo real.
-                    </p>
-                  )}
-                  {showPredictions && !isLoggedIn && (
-                    <p className="text-xs text-zinc-500">
-                      Faça login para palpitar neste jogo.
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-            {initialMatches.length === 0 && (
+                return (
+                  <div key={m.id} className="space-y-3">
+                    <MatchCard match={m} />
+                    {openForBet && (
+                      <MatchPredictionForm
+                        matchId={m.id}
+                        sportSlug={sportSlug}
+                        homeTeamName={m.homeTeam.name}
+                        awayTeamName={m.awayTeam.name}
+                        matchStatus={m.status}
+                        scheduledAt={m.scheduledAt}
+                        existingPrediction={existing ?? null}
+                        variant="inline"
+                      />
+                    )}
+                    {showPredictions &&
+                      isLoggedIn &&
+                      canBet &&
+                      !matchOpen.open && (
+                        <p className="text-xs text-zinc-500">
+                          {matchOpen.message}
+                        </p>
+                      )}
+                    {showPredictions && isLoggedIn && !canBet && (
+                      <p className="text-xs text-amber-400">
+                        Inscrição necessária para palpitar no modo real.
+                      </p>
+                    )}
+                    {showPredictions && !isLoggedIn && (
+                      <p className="text-xs text-zinc-500">
+                        Faça login para palpitar neste jogo.
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            {!loading && matches.length === 0 && (
               <p className="py-12 text-center text-sm text-zinc-400">
                 {initialTab === "upcoming"
                   ? "Nenhum jogo agendado no momento"

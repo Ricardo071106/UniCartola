@@ -1,27 +1,30 @@
-import { after } from "next/server";
 import { AppShell } from "@/components/layout/AppShell";
 import { getSession } from "@/lib/auth/session";
 import { getCurrencyMode } from "@/lib/currency/server";
 import { getUserBalances } from "@/lib/queries/user-balances";
+import { safeQuery } from "@/lib/db/safe-query";
 
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  after(() => {
-    import("@/lib/ndu/sync-scheduler")
-      .then(({ maybeRunBackgroundSync }) => maybeRunBackgroundSync("page"))
-      .catch((error) => console.error("[layout] ndu sync:", error));
-  });
-
   const session = await getSession();
   const currencyMode = await getCurrencyMode();
 
   let totalPoints = 0;
   let realBalance = 0;
   if (session) {
-    const balances = await getUserBalances(session.userId);
+    const balances = await safeQuery(
+      () => getUserBalances(session.userId),
+      {
+        playBalance: 10000,
+        realBalance: 0,
+        realEntryPaid: false,
+        totalPoints: 0,
+      },
+      4000
+    );
     totalPoints = balances.totalPoints;
     realBalance = balances.realBalance;
   }
