@@ -8,6 +8,7 @@ import {
   REAL_ENTRY_AMOUNT_CENTS,
   REAL_ENTRY_CURRENCY,
 } from "@/lib/stripe/client";
+import { getAppBaseUrl } from "@/lib/app-url";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export async function POST() {
     return NextResponse.json({ error: "Inscrição já paga" }, { status: 400 });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppBaseUrl();
 
   const checkout = await stripe.checkout.sessions.create({
     mode: "payment",

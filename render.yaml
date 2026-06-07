@@ -17,3 +17,15 @@ services:
         generateValue: true
       - key: NEXT_PUBLIC_APP_URL
         sync: false
+      - key: CRON_SECRET
+        generateValue: true
+      - key: NDU_SYNC_INTERVAL_SECONDS
+        value: "21600"
+
+  - type: cron
+    name: ndu-sync
+    schedule: "0 */6 * * *"
+    startCommand: >-
+      curl -fsS -X POST
+      -H "Authorization: Bearer ${CRON_SECRET}"
+      "${NEXT_PUBLIC_APP_URL}/api/cron/scrape"

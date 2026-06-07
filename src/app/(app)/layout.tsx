@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { AppShell } from "@/components/layout/AppShell";
 import { getSession } from "@/lib/auth/session";
 import { getCurrencyMode } from "@/lib/currency/server";
@@ -8,6 +9,12 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
+  after(() => {
+    import("@/lib/ndu/sync-scheduler")
+      .then(({ maybeRunBackgroundSync }) => maybeRunBackgroundSync("page"))
+      .catch((error) => console.error("[layout] ndu sync:", error));
+  });
+
   const session = await getSession();
   const currencyMode = await getCurrencyMode();
 

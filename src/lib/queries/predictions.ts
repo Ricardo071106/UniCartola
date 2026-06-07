@@ -3,6 +3,7 @@ import { predictions, matches, sports } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import type { CurrencyMode } from "@/lib/currency/mode";
 import type { PalpitesSportFilter } from "./standings";
+import { matchSeriesSql } from "@/lib/ndu/series";
 import { enrichMatches } from "./matches";
 import type { MatchPredictionView } from "@/types";
 
@@ -85,7 +86,7 @@ export async function getUserSavedMatchPredictions(
   const conditions = [
     eq(predictions.userId, userId),
     eq(predictions.currencyMode, currencyMode),
-    eq(matches.series, series.trim().toUpperCase()),
+    matchSeriesSql(series),
   ];
   if (sportId) conditions.push(eq(matches.sportId, sportId));
 

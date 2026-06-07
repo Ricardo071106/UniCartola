@@ -9,8 +9,8 @@ import {
   teamMappingQueue,
   universities,
 } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { startOfDayBrazil } from "@/lib/utils";
+import { eq, isNotNull } from "drizzle-orm";
+import { normalizeSeriesLabel, inferSeriesFromExternalKey } from "./series";
 import type { ParsedMatchRow } from "./parser";
 import { fetchAllNduJogosRows } from "./jogos-fetch";
 import { fetchNduHtml, NDU_JOGOS_URL } from "./fetch";
@@ -363,16 +363,6 @@ function teamsMatch(
   return direct || swapped;
 }
 
-function normalizeSeriesLabel(series: string | undefined | null): string | null {
-  if (!series?.trim()) return null;
-  const t = series.trim().toUpperCase();
-  const letter = t.match(/^([A-F])$/)?.[1];
-  if (letter) return letter;
-  const fromLabel = t.match(/S[EÉ]RIE\s*([A-F])/i)?.[1];
-  if (fromLabel) return fromLabel.toUpperCase();
-  return t.slice(0, 8);
-}
-
 function resolveMatchStatus(
   row: ParsedMatchRow,
   scheduledAt: Date
@@ -438,9 +428,12 @@ async function upsertMatchRow(
 
   let matchId: string;
 
+  const normalizedSeries = normalizeSeriesLabel(row.series);
+
   if (existing) {
     matchId = existing.id;
     const preferJogos = Boolean(row.nduMatchId);
+    const seriesToStore = normalizedSeries ?? existing.series;
     const needsUpdate =
       existing.homeScore !== row.homeScore ||
       existing.awayScore !== row.awayScore ||
@@ -449,6 +442,7 @@ async function upsertMatchRow(
       existing.groupName !== row.group ||
       existing.sportId !== sportId ||
       existing.modality !== row.modality ||
+      (normalizedSeries != null && existing.series !== normalizedSeries) ||
       (preferJogos &&
         (existing.homeAthleticsId !== teams.homeAthleticsId ||
           existing.awayAthleticsId !== teams.awayAthleticsId));
@@ -469,7 +463,7 @@ async function upsertMatchRow(
           scheduledAt,
           updatedAt: new Date(),
           externalKey: row.nduMatchId ? externalKey : existing.externalKey,
-          series: normalizeSeriesLabel(row.series),
+          series: seriesToStore,
           groupName: row.group?.slice(0, 8) ?? row.group,
           modality: row.modality,
           venue: row.venue?.slice(0, 200) ?? existing.venue,
@@ -496,7 +490,7 @@ async function upsertMatchRow(
       sportId,
       seasonId,
       modality: row.modality,
-      series: normalizeSeriesLabel(row.series),
+      series: normalizedSeries,
       groupName: safeGroup,
       externalKey,
       scheduledAt,
@@ -517,6 +511,32 @@ export type ScrapeOptions = {
   syncScorers?: boolean;
   scorerLimit?: number;
 };
+
+async function backfillNormalizedSeries(): Promise<number> {
+  const db = requireDb();
+  const rows = await db
+    .select({
+      id: matches.id,
+      series: matches.series,
+      externalKey: matches.externalKey,
+    })
+    .from(matches)
+    .where(isNotNull(matches.externalKey));
+
+  let updated = 0;
+  for (const row of rows) {
+    const normalized =
+      normalizeSeriesLabel(row.series) ??
+      inferSeriesFromExternalKey(row.externalKey);
+    if (!normalized || normalized === row.series) continue;
+    await db
+      .update(matches)
+      .set({ series: normalized, updatedAt: new Date() })
+      .where(eq(matches.id, row.id));
+    updated++;
+  }
+  return updated;
+}
 
 async function ingestMatchRows(
   allRows: ParsedMatchRow[],
@@ -614,6 +634,11 @@ async function ingestMatchRows(
         `scorers/${item.nduMatchId}: ${e instanceof Error ? e.message : String(e)}`
       );
     }
+  }
+
+  const seriesBackfilled = await backfillNormalizedSeries();
+  if (seriesBackfilled > 0) {
+    console.log(`[ndu] Séries normalizadas: ${seriesBackfilled}`);
   }
 
   return { totalCreated, totalUpdated, scorersSynced };

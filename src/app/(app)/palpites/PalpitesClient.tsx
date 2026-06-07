@@ -130,8 +130,7 @@ export function PalpitesClient({
   const isRealMode = currencyMode === "real";
   const canBet = isLoggedIn && (!isRealMode || realEntryPaid);
 
-  const savedIds = new Set(savedMatchPredictions.map((s) => s.match.id));
-  const upcomingWithoutSaved = upcomingMatches.filter((m) => !savedIds.has(m.id));
+  const showUpcoming = upcomingMatches;
 
   function updateParams(key: string, value: string) {
     const p = new URLSearchParams(searchParams.toString());
@@ -296,13 +295,16 @@ export function PalpitesClient({
               </p>
             </div>
 
-            {upcomingWithoutSaved.length === 0 && (
+            {showUpcoming.length === 0 && (
               <p className="py-6 text-center text-sm text-zinc-400">
-                Nenhum jogo novo para palpitar nesta série.
+                Nenhum jogo agendado nesta série no momento.
               </p>
             )}
 
-            {upcomingWithoutSaved.map((match) => {
+            {showUpcoming.map((match) => {
+              const existing = savedMatchPredictions.find(
+                (s) => s.match.id === match.id
+              )?.prediction;
               const matchSport = match.sport.slug as SportSlug;
               const open = isMatchPredictionOpen({
                 status: match.status,
@@ -322,6 +324,7 @@ export function PalpitesClient({
                       awayTeamName={match.awayTeam.name}
                       matchStatus={match.status}
                       scheduledAt={match.scheduledAt}
+                      existingPrediction={existing ?? null}
                       variant="inline"
                     />
                   ) : canBet && !open.open ? (

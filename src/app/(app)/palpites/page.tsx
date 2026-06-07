@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { after } from "next/server";
 import { PalpitesClient } from "./PalpitesClient";
-import { getMatchesByFilter } from "@/lib/queries/matches";
+import { getPalpitesUpcomingMatches } from "@/lib/queries/matches";
 import { getUserMarketPredictions } from "@/lib/queries/market-predictions";
 import { getUserSavedMatchPredictions } from "@/lib/queries/predictions";
 import {
@@ -37,6 +37,10 @@ export default async function PalpitesPage({
       .catch((error) =>
         console.error("[palpites] sync estatísticas NDU:", error)
       );
+
+    import("@/lib/ndu/sync-scheduler")
+      .then(({ maybeRunBackgroundSync }) => maybeRunBackgroundSync("page"))
+      .catch((error) => console.error("[palpites] ndu sync:", error));
   });
 
   const session = await getSession();
@@ -76,8 +80,7 @@ export default async function PalpitesPage({
 
   const upcomingMatches = await safeQuery(
     () =>
-      getMatchesByFilter({
-        tab: "upcoming",
+      getPalpitesUpcomingMatches({
         series,
         ...(sportFilter !== "all" ? { sport: sportFilter } : {}),
       }),

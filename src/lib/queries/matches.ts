@@ -8,6 +8,12 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, gte, lte, desc, asc, inArray, type SQL } from "drizzle-orm";
 import type { MatchWithTeams, SportSlug } from "@/types";
+import {
+  matchBelongsToSeries,
+  matchSeriesSql,
+  parseSeriesLetter,
+  resolveMatchSeries,
+} from "@/lib/ndu/series";
 import { realMatchesOnly } from "./match-filters";
 import {
   startOfDayBrazil,
@@ -174,7 +180,7 @@ async function buildSportSeriesConditions(options: {
 }): Promise<SQL[]> {
   const extra: SQL[] = [];
   if (options.series?.trim()) {
-    extra.push(eq(matches.series, options.series.trim().toUpperCase()));
+    extra.push(matchSeriesSql(options.series));
   }
   if (options.sport) {
     const db = requireDb();
@@ -276,4 +282,45 @@ export async function getMatchesByFilter(options: {
   }
 
   return enrichMatches(rows);
+}
+
+/** Jogos palpitráveis para a tela de Palpites (filtro de série em memória). */
+export async function getPalpitesUpcomingMatches(options: {
+  sport?: SportSlug;
+  series: string;
+}): Promise<MatchWithTeams[]> {
+  const db = requireDb();
+  const now = new Date();
+  const horizon = addDaysBrazil(now, 21);
+  const sportFilters = await buildSportSeriesConditions({
+    sport: options.sport,
+  });
+
+  const rows = await db
+    .select()
+    .from(matches)
+    .where(
+      and(
+        realMatchesOnly(),
+        inArray(matches.status, ["scheduled", "live"]),
+        gte(matches.scheduledAt, startOfDayBrazil(now)),
+        lte(matches.scheduledAt, endOfDayBrazil(horizon)),
+        ...sportFilters
+      )
+    )
+    .orderBy(asc(matches.scheduledAt))
+    .limit(500);
+
+  const targetSeries = parseSeriesLetter(options.series);
+  let filtered = rows.filter((row) =>
+    matchBelongsToSeries(row.series, targetSeries, row.externalKey)
+  );
+
+  if (filtered.length === 0) {
+    filtered = rows.filter(
+      (row) => !resolveMatchSeries(row.series, row.externalKey)
+    );
+  }
+
+  return enrichMatches(filtered);
 }
