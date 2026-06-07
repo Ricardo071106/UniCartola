@@ -27,6 +27,7 @@ const PLAYOFF_END_RE =
   /\n(?:Handebol|Vôlei|Futebol de Campo Masculino|Basquete Masculino|Futsal Masculino)\s+(?:\(Série|Feminino|Masculino)/i;
 
 import { normalizePlayoffPhase } from "./playoff-phases";
+import { extractPlayoffExtraScores } from "./playoff-winner";
 
 export { normalizePlayoffPhase, isPlayoffPhase } from "./playoff-phases";
 
@@ -257,6 +258,8 @@ function parsePlayoffRecord(
     return null;
   }
 
+  const extras = extractPlayoffExtraScores(line);
+
   const venueMatch = beforeScore.match(
     /^(\d{2}\/\d{2})\s+(\S+)\s+([\wÀ-ú\s-]+?)\s+(8ªs|4ªs|Oitavas|Quartas|Semi|Final)/i
   );
@@ -270,6 +273,18 @@ function parsePlayoffRecord(
     awayScore,
     isFinished: homeScore != null && awayScore != null,
     venue: venueMatch?.[3]?.trim(),
+    ...(extras.overtimeHome != null
+      ? { overtimeHomeScore: extras.overtimeHome }
+      : {}),
+    ...(extras.overtimeAway != null
+      ? { overtimeAwayScore: extras.overtimeAway }
+      : {}),
+    ...(extras.penaltyHome != null
+      ? { penaltyHomeScore: extras.penaltyHome }
+      : {}),
+    ...(extras.penaltyAway != null
+      ? { penaltyAwayScore: extras.penaltyAway }
+      : {}),
   };
 }
 

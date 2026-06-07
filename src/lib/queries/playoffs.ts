@@ -4,6 +4,7 @@ import { matches, sports, seasons, universities, athletics } from "@/lib/db/sche
 import { and, eq, inArray } from "drizzle-orm";
 import { isPlayoffPhase, normalizePlayoffPhase } from "@/lib/ndu/playoff-phases";
 import { realMatchesOnly } from "./match-filters";
+import { resolvePlayoffWinner } from "@/lib/ndu/playoff-winner";
 import { modalityToSportSlug, normalizeTeamName } from "@/lib/ndu/normalize";
 
 type BoletimPlayoffRow = {
@@ -14,6 +15,10 @@ type BoletimPlayoffRow = {
   awayTeamRaw?: string;
   homeScore?: number;
   awayScore?: number;
+  overtimeHomeScore?: number;
+  overtimeAwayScore?: number;
+  penaltyHomeScore?: number;
+  penaltyAwayScore?: number;
   isFinished: boolean;
   dateLabel: string;
 };
@@ -44,12 +49,31 @@ function phaseRank(phase: string): number {
 
 function winnerSide(
   homeScore: number | null,
-  awayScore: number | null
+  awayScore: number | null,
+  extras: {
+    overtimeHome?: number | null;
+    overtimeAway?: number | null;
+    penaltyHome?: number | null;
+    penaltyAway?: number | null;
+  } = {},
+  isPlayoff = false
 ): "home" | "away" | "draw" | null {
-  if (homeScore == null || awayScore == null) return null;
-  if (homeScore > awayScore) return "home";
-  if (awayScore > homeScore) return "away";
-  return "draw";
+  return resolvePlayoffWinner(homeScore, awayScore, extras, { isPlayoff })
+    .winnerSide;
+}
+
+function winnerMethod(
+  homeScore: number | null,
+  awayScore: number | null,
+  extras: {
+    overtimeHome?: number | null;
+    overtimeAway?: number | null;
+    penaltyHome?: number | null;
+    penaltyAway?: number | null;
+  } = {},
+  isPlayoff = false
+): "regulation" | "overtime" | "penalties" | undefined {
+  return resolvePlayoffWinner(homeScore, awayScore, extras, { isPlayoff }).method;
 }
 
 function displayTeamName(
@@ -69,6 +93,9 @@ function matchQuality(m: PlayoffMatch): number {
   if (m.status === "finished") score += 1;
   if (m.homeLogoUrl) score += 1;
   if (m.awayLogoUrl) score += 1;
+  if (m.winnerSide === "home" || m.winnerSide === "away") score += 4;
+  if (m.winnerSide === "draw") score -= 3;
+  if (m.winnerMethod === "overtime" || m.winnerMethod === "penalties") score += 2;
   return score;
 }
 
@@ -152,6 +179,12 @@ async function rowsToPlayoffMatches(
       const phase = normalizePlayoffPhase(row.group);
       const homeScore = row.homeScore ?? null;
       const awayScore = row.awayScore ?? null;
+      const extras = {
+        overtimeHome: row.overtimeHomeScore ?? null,
+        overtimeAway: row.overtimeAwayScore ?? null,
+        penaltyHome: row.penaltyHomeScore ?? null,
+        penaltyAway: row.penaltyAwayScore ?? null,
+      };
       const date =
         parseBoletimDate(row.dateLabel, year) ?? new Date(year, 0, 1);
 
@@ -166,7 +199,8 @@ async function rowsToPlayoffMatches(
         homeScore,
         awayScore,
         status: row.isFinished ? ("finished" as const) : ("scheduled" as const),
-        winnerSide: winnerSide(homeScore, awayScore),
+        winnerSide: winnerSide(homeScore, awayScore, extras, true),
+        winnerMethod: winnerMethod(homeScore, awayScore, extras, true),
       };
     })
   );
@@ -295,7 +329,7 @@ async function getPlayoffBracketFromDb(
     );
 
     const phase = normalizePlayoffPhase(m.groupName ?? "");
-    const win = winnerSide(m.homeScore, m.awayScore);
+    const win = winnerSide(m.homeScore, m.awayScore, {}, true);
 
     return {
       id: m.id,
@@ -309,6 +343,7 @@ async function getPlayoffBracketFromDb(
       awayScore: m.awayScore,
       status: m.status,
       winnerSide: win,
+      winnerMethod: winnerMethod(m.homeScore, m.awayScore, {}, true),
     };
   });
 
@@ -380,7 +415,28 @@ async function getPlayoffBracketFromNduJogos(
         homeScore,
         awayScore,
         status: row.isFinished ? ("finished" as const) : ("scheduled" as const),
-        winnerSide: winnerSide(homeScore, awayScore),
+        winnerSide: winnerSide(
+          homeScore,
+          awayScore,
+          {
+            overtimeHome: row.overtimeHomeScore ?? null,
+            overtimeAway: row.overtimeAwayScore ?? null,
+            penaltyHome: row.penaltyHomeScore ?? null,
+            penaltyAway: row.penaltyAwayScore ?? null,
+          },
+          true
+        ),
+        winnerMethod: winnerMethod(
+          homeScore,
+          awayScore,
+          {
+            overtimeHome: row.overtimeHomeScore ?? null,
+            overtimeAway: row.overtimeAwayScore ?? null,
+            penaltyHome: row.penaltyHomeScore ?? null,
+            penaltyAway: row.penaltyAwayScore ?? null,
+          },
+          true
+        ),
       };
     })
   );

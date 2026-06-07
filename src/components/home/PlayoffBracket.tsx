@@ -69,6 +69,12 @@ function MatchCard({
   const finished = match.status === "finished" && match.homeScore != null;
   const homeWins = finished && match.winnerSide === "home";
   const awayWins = finished && match.winnerSide === "away";
+  const winnerNote =
+    match.winnerMethod === "overtime"
+      ? "Prorrogação"
+      : match.winnerMethod === "penalties"
+        ? "Pênaltis"
+        : null;
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-2">
@@ -89,6 +95,9 @@ function MatchCard({
       {finished && (
         <p className="mt-1.5 text-center text-[10px] font-bold text-zinc-500">
           {match.homeScore} × {match.awayScore}
+          {winnerNote && (
+            <span className="ml-1 text-emerald-500/80">· {winnerNote}</span>
+          )}
         </p>
       )}
       {!finished && (

@@ -25,6 +25,10 @@ export type ParsedMatchRow = {
   awayLogoUrl?: string;
   nduMatchId?: string;
   venue?: string;
+  overtimeHomeScore?: number;
+  overtimeAwayScore?: number;
+  penaltyHomeScore?: number;
+  penaltyAwayScore?: number;
 };
 
 export type ParsedScorer = {
