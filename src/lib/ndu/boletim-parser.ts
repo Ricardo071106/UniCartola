@@ -118,10 +118,15 @@ function parseGroupMatchLine(line: string): Omit<
 
 function stripPlayoffNoise(text: string, stripPhase = false): string {
   let out = text
-    .replace(/\s*Prorrogação:\s*[\d]+\s*[xX×]\s*[\d]+/gi, "")
-    .replace(/\s*Prorrogacao:\s*[\d]+\s*[xX×]\s*[\d]+/gi, "")
-    .replace(/\s*Pênaltis:\s*[\d]+\s*[xX×]\s*[\d]+/gi, "")
-    .replace(/\s*Penaltis:\s*[\d]+\s*[xX×]\s*[\d]+/gi, "")
+    .replace(/\s*Prorrogação:\s*[\d]+\s*[xX×\-–—a]\s*[\d]+/gi, "")
+    .replace(/\s*Prorrogacao:\s*[\d]+\s*[xX×\-–—a]\s*[\d]+/gi, "")
+    .replace(/\s*Prorrogação\s+[\d]+\s*[xX×\-–—a]\s*[\d]+/gi, "")
+    .replace(
+      /\s*P[eê]?naltis:?\s*[\d]+\s*[xX×\-–—a]\s*[\d]+/gi,
+      ""
+    )
+    .replace(/\s*Penaltis:?\s*[\d]+\s*[xX×\-–—a]\s*[\d]+/gi, "")
+    .replace(/\s*P[eê]?naltis\s*\(\s*[\d]+\s*[xX×\-–—a]\s*[\d]+\s*\)/gi, "")
     .replace(/Playoffs\s+[–-].*$/gi, "")
     .replace(/\bVencedor\s+(?:das\s+|da\s+)?(?:4ªs|8ªs)\s*\(\d+\)\s*/gi, "")
     .replace(/\bVencedor\s+das\s+4ªs\s*\(\d+\)\s*/gi, "")
@@ -255,7 +260,10 @@ export function parsePlayoffRecord(
 
   const homeTeamRaw = parsePlayoffTeamSide(homePart);
   const awaySideRaw = afterScore
-    .replace(/\s*(Prorrogação|Prorrogacao|Pênaltis|Penaltis):.*$/i, "")
+    .replace(
+      /\s*(Prorrogação|Prorrogacao|P[eê]?naltis|Penaltis|Pen\.?).*$/i,
+      ""
+    )
     .trim();
   const awayTeamRaw = parsePlayoffTeamSide(awaySideRaw);
 
@@ -313,6 +321,16 @@ function mergePlayoffLines(chunk: string): string[] {
       continue;
     }
     if (/^3º e/i.test(t)) break;
+
+    if (
+      current &&
+      /^(Prorrogação|Prorrogacao|Prorrog\.?|P[eê]?naltis|Penaltis|Pen\.?|Disputa\s+de)/i.test(
+        t
+      )
+    ) {
+      current += ` ${t}`;
+      continue;
+    }
 
     if (/^\d{2}\/\d{2}/.test(t)) {
       if (current) records.push(current);

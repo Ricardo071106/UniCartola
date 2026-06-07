@@ -4,7 +4,7 @@ import { matches, sports, seasons, universities, athletics } from "@/lib/db/sche
 import { and, eq, inArray } from "drizzle-orm";
 import { isPlayoffPhase, normalizePlayoffPhase } from "@/lib/ndu/playoff-phases";
 import { realMatchesOnly } from "./match-filters";
-import { resolvePlayoffWinner, displayPlayoffWinnerSide } from "@/lib/ndu/playoff-winner";
+import { resolvePlayoffWinner, resolvePlayoffMatchDisplay } from "@/lib/ndu/playoff-winner";
 import { matchSeriesSql, normalizeSeriesLabel } from "@/lib/ndu/series";
 import { modalityToSportSlug, normalizeTeamName } from "@/lib/ndu/normalize";
 
@@ -97,18 +97,40 @@ function matchQuality(m: PlayoffMatch): number {
   if (m.winnerSide === "home" || m.winnerSide === "away") score += 4;
   if (m.winnerSide === "draw") score -= 3;
   if (m.winnerMethod === "overtime" || m.winnerMethod === "penalties") score += 2;
+  if (m.penaltyHomeScore != null && m.penaltyAwayScore != null) score += 3;
+  if (m.overtimeHomeScore != null && m.overtimeAwayScore != null) score += 2;
   return score;
 }
 
 function finalizePlayoffMatch(match: PlayoffMatch): PlayoffMatch {
-  const winner = displayPlayoffWinnerSide(match);
-  if (winner === "home" || winner === "away") {
-    return { ...match, winnerSide: winner };
-  }
-  if (match.winnerSide === "draw") {
-    return { ...match, winnerSide: null };
-  }
-  return match;
+  const resolved = resolvePlayoffMatchDisplay(match);
+  return {
+    ...match,
+    winnerSide: resolved.winnerSide,
+    winnerMethod: resolved.winnerMethod ?? match.winnerMethod,
+  };
+}
+
+function mergePlayoffExtras(
+  primary: PlayoffMatch,
+  secondary: PlayoffMatch
+): Pick<
+  PlayoffMatch,
+  | "overtimeHomeScore"
+  | "overtimeAwayScore"
+  | "penaltyHomeScore"
+  | "penaltyAwayScore"
+> {
+  return {
+    overtimeHomeScore:
+      primary.overtimeHomeScore ?? secondary.overtimeHomeScore ?? null,
+    overtimeAwayScore:
+      primary.overtimeAwayScore ?? secondary.overtimeAwayScore ?? null,
+    penaltyHomeScore:
+      primary.penaltyHomeScore ?? secondary.penaltyHomeScore ?? null,
+    penaltyAwayScore:
+      primary.penaltyAwayScore ?? secondary.penaltyAwayScore ?? null,
+  };
 }
 
 function combinePlayoffMatches(
@@ -117,16 +139,16 @@ function combinePlayoffMatches(
 ): PlayoffMatch {
   const primary = matchQuality(b) >= matchQuality(a) ? b : a;
   const secondary = primary === a ? b : a;
+  const extras = mergePlayoffExtras(primary, secondary);
   const merged: PlayoffMatch = {
     ...primary,
+    ...extras,
     homeName:
       primary.homeName !== "A definir" ? primary.homeName : secondary.homeName,
     awayName:
       primary.awayName !== "A definir" ? primary.awayName : secondary.awayName,
     homeLogoUrl: primary.homeLogoUrl ?? secondary.homeLogoUrl,
     awayLogoUrl: primary.awayLogoUrl ?? secondary.awayLogoUrl,
-    winnerSide: primary.winnerSide ?? secondary.winnerSide,
-    winnerMethod: primary.winnerMethod ?? secondary.winnerMethod,
     status:
       primary.status === "finished" || secondary.status === "finished"
         ? "finished"
@@ -285,6 +307,10 @@ async function rowsToPlayoffMatches(
         status: row.isFinished ? ("finished" as const) : ("scheduled" as const),
         winnerSide: winnerSide(homeScore, awayScore, extras, true),
         winnerMethod: winnerMethod(homeScore, awayScore, extras, true),
+        overtimeHomeScore: extras.overtimeHome,
+        overtimeAwayScore: extras.overtimeAway,
+        penaltyHomeScore: extras.penaltyHome,
+        penaltyAwayScore: extras.penaltyAway,
       });
     })
   );
@@ -533,6 +559,10 @@ async function getPlayoffBracketFromNduJogos(
         status: row.isFinished ? ("finished" as const) : ("scheduled" as const),
         winnerSide: winnerSide(homeScore, awayScore, extras, true),
         winnerMethod: winnerMethod(homeScore, awayScore, extras, true),
+        overtimeHomeScore: extras.overtimeHome,
+        overtimeAwayScore: extras.overtimeAway,
+        penaltyHomeScore: extras.penaltyHome,
+        penaltyAwayScore: extras.penaltyAway,
       });
     })
   );

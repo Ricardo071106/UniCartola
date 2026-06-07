@@ -164,6 +164,10 @@ export interface PlayoffMatch {
   status: MatchStatus;
   winnerSide: "home" | "away" | "draw" | null;
   winnerMethod?: "regulation" | "overtime" | "penalties";
+  overtimeHomeScore?: number | null;
+  overtimeAwayScore?: number | null;
+  penaltyHomeScore?: number | null;
+  penaltyAwayScore?: number | null;
 }
 
 export interface PlayoffBracket {
