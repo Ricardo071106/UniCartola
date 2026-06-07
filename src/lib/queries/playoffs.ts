@@ -5,6 +5,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { isPlayoffPhase, normalizePlayoffPhase } from "@/lib/ndu/playoff-phases";
 import { realMatchesOnly } from "./match-filters";
 import { resolvePlayoffWinner } from "@/lib/ndu/playoff-winner";
+import { normalizeSeriesLabel } from "@/lib/ndu/series";
 import { modalityToSportSlug, normalizeTeamName } from "@/lib/ndu/normalize";
 
 type BoletimPlayoffRow = {
@@ -104,7 +105,17 @@ function matchMergeKey(match: PlayoffMatch): string {
     return match.id;
   }
   const phase = normalizePlayoffPhase(match.phase);
-  return `${phase}:${normalizeTeamName(match.homeName)}:${normalizeTeamName(match.awayName)}:${match.homeScore ?? "s"}:${match.awayScore ?? "s"}`;
+  const home = normalizeTeamName(match.homeName);
+  const away = normalizeTeamName(match.awayName);
+  const scoreKey = `${match.homeScore ?? "s"}:${match.awayScore ?? "s"}`;
+
+  if (away === "a definir" || away.length < 2) {
+    return `${phase}:${home}:${scoreKey}`;
+  }
+  if (home === "a definir" || home.length < 2) {
+    return `${phase}:${away}:${scoreKey}`;
+  }
+  return `${phase}:${home}:${away}:${scoreKey}`;
 }
 
 function mergeBrackets(
@@ -218,7 +229,7 @@ async function loadBoletimPlayoffRows(
   return boletim.rows.filter(
     (row) =>
       modalityToSportSlug(row.modality) === sportSlug &&
-      row.series === series &&
+      normalizeSeriesLabel(row.series) === series &&
       isPlayoffPhase(row.group)
   );
 }

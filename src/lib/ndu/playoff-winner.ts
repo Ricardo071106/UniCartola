@@ -61,20 +61,60 @@ export function resolvePlayoffWinner(
   return { winnerSide: "draw" };
 }
 
+const OT_PATTERNS = [
+  /Prorrogação:\s*(\d{1,2})\s*[xX×]\s*(\d{1,2})/i,
+  /Prorrogacao:\s*(\d{1,2})\s*[xX×]\s*(\d{1,2})/i,
+  /Prorrog\.?:\s*(\d{1,2})\s*[xX×]\s*(\d{1,2})/i,
+];
+
+const PEN_PATTERNS = [
+  /Pênaltis:\s*(\d{1,2})\s*[xX×]\s*(\d{1,2})/i,
+  /Penaltis:\s*(\d{1,2})\s*[xX×]\s*(\d{1,2})/i,
+  /Pênalti:\s*(\d{1,2})\s*[xX×]\s*(\d{1,2})/i,
+];
+
 export function extractPlayoffExtraScores(line: string): PlayoffScoreExtras {
   const extras: PlayoffScoreExtras = {};
 
-  const ot = line.match(/Prorrogação:\s*(\d{1,2})\s*x\s*(\d{1,2})/i);
-  if (ot) {
-    extras.overtimeHome = parseInt(ot[1], 10);
-    extras.overtimeAway = parseInt(ot[2], 10);
+  for (const pattern of OT_PATTERNS) {
+    const m = line.match(pattern);
+    if (m) {
+      extras.overtimeHome = parseInt(m[1], 10);
+      extras.overtimeAway = parseInt(m[2], 10);
+      break;
+    }
   }
 
-  const pen = line.match(/Pênaltis:\s*(\d{1,2})\s*x\s*(\d{1,2})/i);
-  if (pen) {
-    extras.penaltyHome = parseInt(pen[1], 10);
-    extras.penaltyAway = parseInt(pen[2], 10);
+  for (const pattern of PEN_PATTERNS) {
+    const m = line.match(pattern);
+    if (m) {
+      extras.penaltyHome = parseInt(m[1], 10);
+      extras.penaltyAway = parseInt(m[2], 10);
+      break;
+    }
   }
 
   return extras;
+}
+
+/** Vencedor para exibição quando winnerSide ainda não foi resolvido. */
+export function displayPlayoffWinnerSide(match: {
+  homeScore: number | null;
+  awayScore: number | null;
+  winnerSide: PlayoffWinnerSide;
+  winnerMethod?: "regulation" | "overtime" | "penalties";
+  status: string;
+}): PlayoffWinnerSide {
+  if (match.winnerSide === "home" || match.winnerSide === "away") {
+    return match.winnerSide;
+  }
+  if (
+    match.status === "finished" &&
+    match.homeScore != null &&
+    match.awayScore != null &&
+    match.homeScore !== match.awayScore
+  ) {
+    return match.homeScore > match.awayScore ? "home" : "away";
+  }
+  return match.winnerSide;
 }

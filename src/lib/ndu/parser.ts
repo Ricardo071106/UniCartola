@@ -174,12 +174,14 @@ export function parseNduJogosPage(html: string): ParsedMatchRow[] {
 
     const dateLabel = $(tds[0]).text().replace(/\s+/g, " ").trim();
     const modality = $(tds[1]).text().trim();
-    const series = $(tds[2]).text().trim();
+    const seriesRaw = $(tds[2]).text().trim();
+    const series = seriesRaw || "A";
     const groupRaw = $(tds[3]).text().trim();
     const group = normalizeGroupName(groupRaw);
     const partidaHtml = $(tds[4]).html() ?? "";
 
     if (!dateLabel || /ainda não há|não há jogos|data/i.test(dateLabel)) return;
+    if (!modality) return;
 
     const teamImgs: { title?: string; src?: string }[] = [];
     for (const tag of partidaHtml.match(/<img[^>]*>/gi) ?? []) {

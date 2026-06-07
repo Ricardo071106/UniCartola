@@ -60,9 +60,10 @@ export function resolveMatchSeries(
 export function matchBelongsToSeries(
   series: string | null | undefined,
   targetLetter: string,
-  externalKey?: string | null
+  externalKey?: string | null,
+  options?: { includeUnknown?: boolean }
 ): boolean {
   const resolved = resolveMatchSeries(series, externalKey);
-  if (!resolved) return false;
+  if (!resolved) return options?.includeUnknown ?? false;
   return resolved === parseSeriesLetter(targetLetter);
 }

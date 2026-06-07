@@ -288,44 +288,48 @@ export async function getPalpitesUpcomingMatches(options: {
   sport?: SportSlug;
   series: string;
 }): Promise<MatchWithTeams[]> {
-  const scope = {
-    ...(options.sport ? { sport: options.sport } : {}),
-    series: options.series,
-  };
-
-  const [upcoming, week] = await Promise.all([
-    getMatchesByFilter({ tab: "upcoming", ...scope }),
-    getMatchesByFilter({ tab: "week", ...scope }),
-  ]);
-
-  const seen = new Set<string>();
-  const merged: MatchWithTeams[] = [];
-
-  for (const match of [...week, ...upcoming]) {
-    if (match.status !== "scheduled" && match.status !== "live") continue;
-    if (seen.has(match.id)) continue;
-    seen.add(match.id);
-    merged.push(match);
-  }
-
-  if (merged.length > 0) {
-    return merged.sort(
-      (a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime()
-    );
-  }
-
-  if (!options.sport) return [];
-
-  const sportOnly = await getMatchesByFilter({
-    tab: "upcoming",
+  const db = requireDb();
+  const sportFilters = await buildSportSeriesConditions({
     sport: options.sport,
   });
   const targetSeries = parseSeriesLetter(options.series);
-  const filtered = sportOnly.filter((m) =>
-    matchBelongsToSeries(m.series, targetSeries, null)
+
+  const rows = await db
+    .select()
+    .from(matches)
+    .where(
+      and(
+        realMatchesOnly(),
+        inArray(matches.status, ["scheduled", "live"]),
+        ...sportFilters
+      )
+    )
+    .orderBy(asc(matches.scheduledAt))
+    .limit(500);
+
+  let filtered = rows.filter((row) =>
+    matchBelongsToSeries(row.series, targetSeries, row.externalKey)
   );
 
-  return filtered.sort(
-    (a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime()
-  );
+  if (filtered.length === 0) {
+    filtered = rows.filter((row) =>
+      matchBelongsToSeries(row.series, targetSeries, row.externalKey, {
+        includeUnknown: true,
+      })
+    );
+  }
+
+  if (filtered.length === 0 && options.sport) {
+    const fromFilter = await getMatchesByFilter({
+      tab: "upcoming",
+      sport: options.sport,
+    });
+    return fromFilter.filter((m) =>
+      matchBelongsToSeries(m.series, targetSeries, null, {
+        includeUnknown: true,
+      })
+    );
+  }
+
+  return enrichMatches(filtered);
 }

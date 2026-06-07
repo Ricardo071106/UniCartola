@@ -118,8 +118,10 @@ function parseGroupMatchLine(line: string): Omit<
 
 function stripPlayoffNoise(text: string, stripPhase = false): string {
   let out = text
-    .replace(/\s*Prorrogação:\s*[\d]+\s*x\s*[\d]+/gi, "")
-    .replace(/\s*Pênaltis:\s*[\d]+\s*x\s*[\d]+/gi, "")
+    .replace(/\s*Prorrogação:\s*[\d]+\s*[xX×]\s*[\d]+/gi, "")
+    .replace(/\s*Prorrogacao:\s*[\d]+\s*[xX×]\s*[\d]+/gi, "")
+    .replace(/\s*Pênaltis:\s*[\d]+\s*[xX×]\s*[\d]+/gi, "")
+    .replace(/\s*Penaltis:\s*[\d]+\s*[xX×]\s*[\d]+/gi, "")
     .replace(/Playoffs\s+[–-].*$/gi, "")
     .replace(/\bVencedor\s+(?:das\s+|da\s+)?(?:4ªs|8ªs)\s*\(\d+\)\s*/gi, "")
     .replace(/\bVencedor\s+das\s+4ªs\s*\(\d+\)\s*/gi, "")
@@ -176,34 +178,27 @@ function splitMergedPlayoffRecords(record: string): string[] {
     .filter((s) => /^\d{2}\/\d{2}/.test(s));
   if (byDate.length > 1) return byDate;
 
-  const byNextMatch = record
-    .split(
-      /(?<=\d{1,2}\s+X\s+\d{1,2})\s+(?=\d+º\s+(?:colocado|melhor)\b)/i
-    )
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (byNextMatch.length > 1) {
-    const prefix = record.match(/^(\d{2}\/\d{2}\s+\S+\s+)/)?.[1] ?? "";
-    return byNextMatch.map((part, i) =>
-      i === 0 || /^\d{2}\/\d{2}/.test(part) ? part : `${prefix}${part}`
-    );
-  }
-
-  const bySemi = record
-    .split(/\s+(?=(?:Semi|Final|Quartas|4ªs|8ªs)\s+(?:\d+º\s+)?(?:colocado|melhor)\b)/i)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (bySemi.length > 1) {
-    const prefix = record.match(/^(\d{2}\/\d{2}\s+\S+\s+)/)?.[1] ?? "";
-    return bySemi.map((part, i) =>
-      i === 0 || /^\d{2}\/\d{2}/.test(part) ? part : `${prefix}${part}`
-    );
-  }
-
+  // Não dividir após placar quando o texto seguinte é "Nº colocado do grupo…"
+  // (nome do visitante, não um novo jogo).
   return [record];
 }
 
-function parsePlayoffRecord(
+function parsePlayoffTeamSide(raw: string): string {
+  const cleaned = stripPlayoffNoise(raw, true).trim();
+  if (!cleaned) return playoffTeamLabel(raw, cleaned);
+
+  const seedColocado = cleaned.match(
+    /^\d+º\s+colocado\s+do\s+grupo\s+[A-F]\s+(.+)$/i
+  );
+  if (seedColocado?.[1]) return trimTeamLabel(seedColocado[1]);
+
+  const melhor = cleaned.match(/^\d+º\s+melhor\s+.+\s+(.+)$/i);
+  if (melhor?.[1]) return trimTeamLabel(melhor[1]);
+
+  return trimTeamLabel(playoffTeamLabel(raw, cleaned));
+}
+
+export function parsePlayoffRecord(
   raw: string
 ): Omit<ParsedMatchRow, "modality" | "series"> | null {
   const line = raw.replace(/\s+/g, " ").trim();
@@ -245,12 +240,11 @@ function parsePlayoffRecord(
     .replace(/^[\wÀ-ú\s-]+?\s+(8ªs|4ªs|Semi|Final)\s*/i, "")
     .trim();
 
-  const homeTeamRaw = trimTeamLabel(
-    playoffTeamLabel(homePart, stripPlayoffNoise(homePart, true))
-  );
-  const awayTeamRaw = trimTeamLabel(
-    playoffTeamLabel(afterScore.trim(), stripPlayoffNoise(afterScore.trim(), true))
-  );
+  const homeTeamRaw = parsePlayoffTeamSide(homePart);
+  const awaySideRaw = afterScore
+    .replace(/\s*(Prorrogação|Prorrogacao|Pênaltis|Penaltis):.*$/i, "")
+    .trim();
+  const awayTeamRaw = parsePlayoffTeamSide(awaySideRaw);
 
   if (/^X$/i.test(homeTeamRaw) && /^X$/i.test(awayTeamRaw)) return null;
   if (!homeTeamRaw || !awayTeamRaw) return null;

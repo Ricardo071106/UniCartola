@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { displayPlayoffWinnerSide } from "@/lib/ndu/playoff-winner";
 import type { PlayoffBracket as PlayoffBracketData, SportSlug } from "@/types";
 import type { SeriesLetter } from "@/lib/queries/standings";
 
@@ -67,8 +68,9 @@ function MatchCard({
   match: PlayoffBracketData["rounds"][0]["matches"][0];
 }) {
   const finished = match.status === "finished" && match.homeScore != null;
-  const homeWins = finished && match.winnerSide === "home";
-  const awayWins = finished && match.winnerSide === "away";
+  const winner = displayPlayoffWinnerSide(match);
+  const homeWins = finished && winner === "home";
+  const awayWins = finished && winner === "away";
   const winnerNote =
     match.winnerMethod === "overtime"
       ? "Prorrogação"
