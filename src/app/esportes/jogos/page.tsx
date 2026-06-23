@@ -9,25 +9,23 @@ import {
 } from "@/lib/esportes/repository";
 
 export const metadata: Metadata = {
-  title: "NDU Esportes | Competições & Resultados",
+  title: "Jogos | NDU Esportes",
   description:
-    "Acompanhe competições, resultados e classificações dos campeonatos universitários NDU.",
+    "Acompanhe os próximos jogos e os jogos encerrados das competições NDU.",
 };
 
-export default function EsportesHomePage() {
-  const upcomingGames = getUpcomingGames(6);
-  const recentResults = getRecentResults(6);
+export default function EsportesJogosPage() {
   const sports = getAllSports();
   const competitions = getAllCompetitions();
+  const upcomingGames = getUpcomingGames(20);
+  const recentResults = getRecentResults(20);
 
   return (
     <div className="space-y-5">
       <section>
-        <h1 className="text-2xl font-black text-white sm:text-3xl">
-          NDU Esportes
-        </h1>
+        <h1 className="text-2xl font-black text-white sm:text-3xl">Jogos</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Competições, resultados e classificações
+          Próximos e encerrados, sem formulários de palpites
         </p>
 
         <div className="cartola-card mt-5 overflow-hidden p-3">
@@ -38,7 +36,6 @@ export default function EsportesHomePage() {
       <EsportesGamesOverview
         upcomingGames={upcomingGames}
         finishedGames={recentResults}
-        showViewAll
       />
     </div>
   );
