@@ -7,9 +7,10 @@ import {
   getCompetitionBySportAndSeries,
   getAllCompetitions,
   getAllSports,
-  getGamesByFilters,
+  getRecentResults,
   getSportDisplayName,
   getStandingsByCompetition,
+  getUpcomingGames,
   parseEsporteSeries,
   parseEsporteSport,
 } from "@/lib/esportes/repository";
@@ -40,18 +41,8 @@ export default async function EsportesHomePage({
   const standings = competition
     ? getStandingsByCompetition(competition.id)
     : [];
-  const upcomingGames = getGamesByFilters({
-    sport: selectedSport,
-    series: selectedSeries,
-    tab: "upcoming",
-    limit: 6,
-  });
-  const recentResults = getGamesByFilters({
-    sport: selectedSport,
-    series: selectedSeries,
-    tab: "finished",
-    limit: 6,
-  });
+  const upcomingGames = getUpcomingGames(6);
+  const recentResults = getRecentResults(6);
 
   return (
     <div className="space-y-5">
