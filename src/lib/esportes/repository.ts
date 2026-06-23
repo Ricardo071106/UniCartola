@@ -74,6 +74,10 @@ export function getAllCompetitions(): EsporteCompetition[] {
   return MOCK_COMPETITIONS;
 }
 
+export function getAllTeams(): EsporteTeam[] {
+  return MOCK_TEAMS;
+}
+
 export function parseEsporteSport(value?: string | null): EsporteSlug {
   const candidate = (value?.trim() || "futsal").toLowerCase();
   return MOCK_SPORTS.some((s) => s.slug === candidate)

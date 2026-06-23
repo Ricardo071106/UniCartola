@@ -3,12 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { BarChart3, Calendar, Home, Trophy } from "lucide-react";
+import { BarChart3, Calendar, GitBranch, Home, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/esportes", label: "Início", icon: Home },
   { href: "/esportes/jogos", label: "Jogos", icon: Calendar },
+  { href: "/esportes/matamata", label: "Mata-mata", icon: GitBranch },
   { href: "/esportes/estatisticas", label: "Estatísticas", icon: BarChart3 },
 ];
 
@@ -29,6 +30,7 @@ export function EsportesHeader() {
   function withCurrentFilters(href: string) {
     if (
       !href.startsWith("/esportes/jogos") &&
+      !href.startsWith("/esportes/matamata") &&
       !href.startsWith("/esportes/estatisticas")
     ) {
       return href;
