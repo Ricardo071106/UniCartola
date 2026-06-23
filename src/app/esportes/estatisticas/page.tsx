@@ -1,26 +1,26 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { CompetitionIconStrip } from "@/components/esportes/CompetitionIconStrip";
-import { EsportesStandingsTable } from "@/components/esportes/EsportesStandingsTable";
+import { EsportesStatisticsSection } from "@/components/esportes/EsportesStatisticsSection";
 import {
-  getCompetitionBySportAndSeries,
   getAllCompetitions,
   getAllSports,
+  getCompetitionBySportAndSeries,
   getSportDisplayName,
-  getStandingsByCompetition,
+  getStatisticsByCompetition,
   parseEsporteSeries,
   parseEsporteSport,
 } from "@/lib/esportes/repository";
 
 export const metadata: Metadata = {
-  title: "NDU Esportes | Competições & Resultados",
+  title: "Estatísticas | NDU Esportes",
   description:
-    "Acompanhe competições, resultados e classificações dos campeonatos universitários NDU.",
+    "Acompanhe artilheiros, pontuadores, cartões e estatísticas das competições NDU.",
 };
 
 type SearchParams = Promise<{ sport?: string; series?: string }>;
 
-export default async function EsportesHomePage({
+export default async function EsportesEstatisticasPage({
   searchParams,
 }: {
   searchParams: SearchParams;
@@ -30,23 +30,21 @@ export default async function EsportesHomePage({
   const selectedSeries = parseEsporteSeries(params.series);
   const sports = getAllSports();
   const competitions = getAllCompetitions();
+  const sport = sports.find((s) => s.slug === selectedSport) ?? sports[0];
   const competition = getCompetitionBySportAndSeries(
     selectedSport,
     selectedSeries
   );
-  const sport = sports.find((s) => s.slug === selectedSport) ?? sports[0];
-  const standings = competition
-    ? getStandingsByCompetition(competition.id)
-    : [];
+  const competitionId = competition?.id ?? "";
 
   return (
     <div className="space-y-5">
       <section>
         <h1 className="text-2xl font-black text-white sm:text-3xl">
-          NDU Esportes
+          Estatísticas
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Competições, resultados e classificações
+          {getSportDisplayName(sport, selectedSeries)}
         </p>
 
         <div className="cartola-card mt-5 overflow-hidden p-3">
@@ -61,17 +59,13 @@ export default async function EsportesHomePage({
         </div>
       </section>
 
-      <section className="cartola-card overflow-hidden">
-        <div className="border-b border-zinc-800 bg-zinc-900 px-4 py-3">
-          <h2 className="text-base font-black text-white">Classificação</h2>
-          <p className="text-xs font-medium text-zinc-500">
-            {getSportDisplayName(sport, selectedSeries)}
-          </p>
-        </div>
-        <div className="px-2 pb-2">
-          <EsportesStandingsTable entries={standings} />
-        </div>
-      </section>
+      <EsportesStatisticsSection
+        goals={getStatisticsByCompetition(competitionId, "goals")}
+        points={getStatisticsByCompetition(competitionId, "points")}
+        assists={getStatisticsByCompetition(competitionId, "assists")}
+        yellowCards={getStatisticsByCompetition(competitionId, "yellowCards")}
+        redCards={getStatisticsByCompetition(competitionId, "redCards")}
+      />
     </div>
   );
 }

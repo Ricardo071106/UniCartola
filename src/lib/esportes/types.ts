@@ -56,6 +56,24 @@ export interface EsporteTeamStats {
   goalsAgainst: number;
 }
 
+/** Categoria de ranking estatístico */
+export type EsporteStatisticCategory =
+  | "goals"
+  | "points"
+  | "yellowCards"
+  | "redCards"
+  | "assists";
+
+/** Entrada de ranking estatístico */
+export interface EsporteStatisticEntry {
+  id: string;
+  competitionId: string;
+  category: EsporteStatisticCategory;
+  playerName: string;
+  teamId: string;
+  total: number;
+}
+
 /** Entrada na tabela de classificação */
 export interface EsporteStanding {
   position: number;

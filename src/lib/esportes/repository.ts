@@ -8,6 +8,7 @@ import {
   MOCK_GAMES,
   MOCK_KNOCKOUT_BRACKETS,
   MOCK_SPORTS,
+  MOCK_STATISTICS,
   MOCK_STANDINGS,
   MOCK_TEAM_STATS,
   MOCK_TEAMS,
@@ -19,6 +20,8 @@ import type {
   EsporteGameWithDetails,
   EsporteKnockoutBracket,
   EsporteSeries,
+  EsporteStatisticCategory,
+  EsporteStatisticEntry,
   EsporteSlug,
   EsporteSport,
   EsporteStanding,
@@ -239,6 +242,28 @@ export function getTeamStats(
     ? MOCK_TEAM_STATS.find((s) => s.teamId === teamId && s.competitionId === competitionId)
     : MOCK_TEAM_STATS.find((s) => s.teamId === teamId);
   return stats ?? null;
+}
+
+export function getStatisticsByCompetition(
+  competitionId: string,
+  category: EsporteStatisticCategory
+): (EsporteStatisticEntry & { team: EsporteTeam; rank: number })[] {
+  return MOCK_STATISTICS.filter(
+    (entry) =>
+      entry.competitionId === competitionId && entry.category === category
+  )
+    .sort((a, b) => b.total - a.total)
+    .map((entry, index) => {
+      const team = getTeam(entry.teamId);
+      if (!team) return null;
+      return { ...entry, team, rank: index + 1 };
+    })
+    .filter(
+      (
+        entry
+      ): entry is EsporteStatisticEntry & { team: EsporteTeam; rank: number } =>
+        entry !== null
+    );
 }
 
 export function getKnockoutBracket(competitionId: string): EsporteKnockoutBracket | null {

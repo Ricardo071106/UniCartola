@@ -3,18 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Calendar, CheckCircle2, Clock, Home, Trophy } from "lucide-react";
+import { BarChart3, Calendar, Home, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/esportes", label: "Início", icon: Home },
   { href: "/esportes/jogos", label: "Jogos", icon: Calendar },
-  { href: "/esportes/jogos?tab=upcoming", label: "Próximos", icon: Clock },
-  {
-    href: "/esportes/jogos?tab=finished",
-    label: "Encerrados",
-    icon: CheckCircle2,
-  },
+  { href: "/esportes/estatisticas", label: "Estatísticas", icon: BarChart3 },
 ];
 
 export function EsportesHeader() {
@@ -32,13 +27,15 @@ export function EsportesHeader() {
   }
 
   function withCurrentFilters(href: string) {
-    if (!href.startsWith("/esportes/jogos")) return href;
+    if (
+      !href.startsWith("/esportes/jogos") &&
+      !href.startsWith("/esportes/estatisticas")
+    ) {
+      return href;
+    }
 
     const [path, query] = href.split("?");
     const params = new URLSearchParams(query ?? "");
-    const tab = params.get("tab");
-    if (tab === "upcoming" || tab === "finished") return href;
-
     const sport = searchParams.get("sport");
     const series = searchParams.get("series");
     if (sport) params.set("sport", sport);

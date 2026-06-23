@@ -3,6 +3,7 @@ import type {
   EsporteGame,
   EsporteKnockoutBracket,
   EsporteSeries,
+  EsporteStatisticEntry,
   EsporteSport,
   EsporteStanding,
   EsporteTeam,
@@ -50,6 +51,8 @@ export const MOCK_TEAMS: EsporteTeam[] = [
   { id: "team-puc", name: "PUC-SP", shortName: "PUC", logoUrl: null, color: "#003087" },
   { id: "team-fea", name: "FEA-USP", shortName: "FEA", logoUrl: null, color: "#ffd700" },
   { id: "team-poliusp", name: "Poli-USP", shortName: "Poli", logoUrl: null, color: "#004d40" },
+  { id: "team-winner-semi-a", name: "Ganhador da Semi A", shortName: "Semi A", logoUrl: null, color: "#52525b" },
+  { id: "team-winner-semi-b", name: "Ganhador da Semi B", shortName: "Semi B", logoUrl: null, color: "#52525b" },
 ];
 
 function compId(sport: string, series: EsporteSeries) {
@@ -201,6 +204,18 @@ export const MOCK_GAMES: EsporteGame[] = [
     status: "finished",
     round: "Rodada 3",
   },
+  {
+    id: "game-13",
+    competitionId: compId("futsal", "A"),
+    homeTeamId: "team-winner-semi-a",
+    awayTeamId: "team-winner-semi-b",
+    homeScore: null,
+    awayScore: null,
+    scheduledAt: "2026-06-30T21:00:00-03:00",
+    venue: "Ginásio NDU",
+    status: "scheduled",
+    round: "Final",
+  },
 ];
 
 export const MOCK_STANDINGS: EsporteStanding[] = [
@@ -300,3 +315,26 @@ export const MOCK_TEAM_STATS: EsporteTeamStats[] = MOCK_STANDINGS.map((s) => ({
   goalsFor: s.goalsFor,
   goalsAgainst: s.goalsAgainst,
 }));
+
+export const MOCK_STATISTICS: EsporteStatisticEntry[] = [
+  { id: "stat-1", competitionId: compId("futsal", "A"), category: "goals", playerName: "Rafael Lima", teamId: "team-link", total: 12 },
+  { id: "stat-2", competitionId: compId("futsal", "A"), category: "goals", playerName: "Bruno Reis", teamId: "team-fgv", total: 9 },
+  { id: "stat-3", competitionId: compId("futsal", "A"), category: "goals", playerName: "Lucas Moreira", teamId: "team-espm", total: 8 },
+  { id: "stat-4", competitionId: compId("futsal", "A"), category: "assists", playerName: "Pedro Costa", teamId: "team-insper", total: 7 },
+  { id: "stat-5", competitionId: compId("futsal", "A"), category: "assists", playerName: "João Martins", teamId: "team-link", total: 6 },
+  { id: "stat-6", competitionId: compId("futsal", "A"), category: "yellowCards", playerName: "Caio Nunes", teamId: "team-mack", total: 4 },
+  { id: "stat-7", competitionId: compId("futsal", "A"), category: "yellowCards", playerName: "Felipe Rocha", teamId: "team-puc", total: 3 },
+  { id: "stat-8", competitionId: compId("futsal", "A"), category: "redCards", playerName: "André Souza", teamId: "team-fea", total: 1 },
+
+  { id: "stat-9", competitionId: compId("basquete", "A"), category: "points", playerName: "Gustavo Alves", teamId: "team-insper", total: 118 },
+  { id: "stat-10", competitionId: compId("basquete", "A"), category: "points", playerName: "Mateus Barros", teamId: "team-mack", total: 96 },
+  { id: "stat-11", competitionId: compId("basquete", "A"), category: "points", playerName: "Henrique Dias", teamId: "team-link", total: 84 },
+  { id: "stat-12", competitionId: compId("basquete", "A"), category: "assists", playerName: "Daniel Prado", teamId: "team-puc", total: 28 },
+  { id: "stat-13", competitionId: compId("basquete", "A"), category: "yellowCards", playerName: "Leonardo Maia", teamId: "team-mack", total: 2 },
+
+  { id: "stat-14", competitionId: compId("futebol", "A"), category: "goals", playerName: "Thiago Ramos", teamId: "team-puc", total: 6 },
+  { id: "stat-15", competitionId: compId("futebol", "A"), category: "goals", playerName: "Murilo Freitas", teamId: "team-fea", total: 5 },
+  { id: "stat-16", competitionId: compId("futebol", "A"), category: "assists", playerName: "Vitor Lopes", teamId: "team-poliusp", total: 4 },
+  { id: "stat-17", competitionId: compId("futebol", "A"), category: "yellowCards", playerName: "Eduardo Castro", teamId: "team-espm", total: 5 },
+  { id: "stat-18", competitionId: compId("futebol", "A"), category: "redCards", playerName: "Marcelo Pinto", teamId: "team-fea", total: 1 },
+];
