@@ -172,7 +172,7 @@ export const MOCK_GAMES: EsporteGame[] = [
     awayTeamId: "team-fea",
     homeScore: 1,
     awayScore: 0,
-    scheduledAt: "2026-06-24T21:00:00-03:00",
+    scheduledAt: "2026-06-23T21:00:00-03:00",
     venue: "Ginásio PUC",
     status: "live",
     round: "Rodada 8",

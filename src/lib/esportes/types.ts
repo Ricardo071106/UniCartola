@@ -9,6 +9,14 @@ export type EsporteSeries = "A" | "B" | "C" | "D" | "E" | "F";
 
 export const ESPORTE_SERIES: EsporteSeries[] = ["A", "B", "C", "D", "E", "F"];
 
+/** Abas de jogos da área NDU Esportes */
+export type EsporteGamesTab =
+  | "upcoming"
+  | "today"
+  | "tomorrow"
+  | "week"
+  | "finished";
+
 /** Esporte / modalidade */
 export interface EsporteSport {
   id: string;

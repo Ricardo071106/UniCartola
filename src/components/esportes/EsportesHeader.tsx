@@ -2,17 +2,51 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Calendar, Home, Trophy } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Calendar, CheckCircle2, Clock, Home, Sun, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/esportes", label: "Início", icon: Home },
   { href: "/esportes/jogos", label: "Jogos", icon: Calendar },
+  { href: "/esportes/jogos?tab=upcoming", label: "Próximos", icon: Clock },
+  { href: "/esportes/jogos?tab=today", label: "Hoje", icon: Sun },
+  { href: "/esportes/jogos?tab=tomorrow", label: "Amanhã", icon: Calendar },
+  { href: "/esportes/jogos?tab=week", label: "Semana", icon: Calendar },
+  {
+    href: "/esportes/jogos?tab=finished",
+    label: "Encerrados",
+    icon: CheckCircle2,
+  },
 ];
 
 export function EsportesHeader() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get("tab");
+
+  function isActive(href: string) {
+    const [itemPath, query] = href.split("?");
+    const itemTab = query ? new URLSearchParams(query).get("tab") : null;
+
+    if (itemTab) return pathname === itemPath && activeTab === itemTab;
+    if (href === "/esportes") return pathname === "/esportes";
+    return pathname === itemPath && !activeTab;
+  }
+
+  function withCurrentFilters(href: string) {
+    if (!href.startsWith("/esportes/jogos")) return href;
+
+    const [path, query] = href.split("?");
+    const params = new URLSearchParams(query ?? "");
+    const sport = searchParams.get("sport");
+    const series = searchParams.get("series");
+    if (sport) params.set("sport", sport);
+    if (series) params.set("series", series);
+
+    const queryString = params.toString();
+    return queryString ? `${path}?${queryString}` : path;
+  }
 
   return (
     <>
@@ -51,13 +85,13 @@ export function EsportesHeader() {
       </header>
 
       <nav className="hidden border-b border-zinc-800 bg-zinc-950 md:block">
-        <div className="mx-auto flex max-w-5xl gap-1 px-4 py-2">
+        <div className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 py-2 scrollbar-none">
           {navItems.map((item) => {
-            const active = pathname === item.href;
+            const active = isActive(item.href);
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={withCurrentFilters(item.href)}
                 className={cn(
                   "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-colors",
                   active
@@ -74,15 +108,15 @@ export function EsportesHeader() {
       </nav>
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-800 bg-zinc-950 md:hidden">
-        <div className="mx-auto flex max-w-lg items-center justify-around px-1 py-1.5 safe-area-pb">
+        <div className="mx-auto flex max-w-lg items-center gap-2 overflow-x-auto px-2 py-1.5 safe-area-pb scrollbar-none">
           {navItems.map((item) => {
-            const active = pathname === item.href;
+            const active = isActive(item.href);
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={withCurrentFilters(item.href)}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 rounded-lg px-3 py-1 text-[10px] font-bold",
+                  "flex shrink-0 flex-col items-center gap-0.5 rounded-lg px-3 py-1 text-[10px] font-bold",
                   active ? "text-[#c9a227]" : "text-zinc-600"
                 )}
               >

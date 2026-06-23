@@ -15,13 +15,17 @@ import {
 import type {
   EsporteCompetition,
   EsporteGame,
+  EsporteGamesTab,
   EsporteGameWithDetails,
   EsporteKnockoutBracket,
+  EsporteSeries,
+  EsporteSlug,
   EsporteSport,
   EsporteStanding,
   EsporteTeam,
   EsporteTeamStats,
 } from "./types";
+import { ESPORTE_SERIES } from "./types";
 
 function getTeam(id: string): EsporteTeam | undefined {
   return MOCK_TEAMS.find((t) => t.id === id);
@@ -33,6 +37,20 @@ function getSport(id: string): EsporteSport | undefined {
 
 function getCompetition(id: string): EsporteCompetition | undefined {
   return MOCK_COMPETITIONS.find((c) => c.id === id);
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
 }
 
 function enrichGame(game: EsporteGame): EsporteGameWithDetails | null {
@@ -51,6 +69,43 @@ export function getAllSports(): EsporteSport[] {
 
 export function getAllCompetitions(): EsporteCompetition[] {
   return MOCK_COMPETITIONS;
+}
+
+export function parseEsporteSport(value?: string | null): EsporteSlug {
+  const candidate = (value?.trim() || "futsal").toLowerCase();
+  return MOCK_SPORTS.some((s) => s.slug === candidate)
+    ? (candidate as EsporteSlug)
+    : "futsal";
+}
+
+export function parseEsporteSeries(value?: string | null): EsporteSeries {
+  const candidate = (value?.trim() || "A").toUpperCase();
+  return ESPORTE_SERIES.includes(candidate as EsporteSeries)
+    ? (candidate as EsporteSeries)
+    : "A";
+}
+
+export function parseEsporteGamesTab(value?: string | null): EsporteGamesTab {
+  const candidate = (value?.trim() || "upcoming").toLowerCase();
+  return ["upcoming", "today", "tomorrow", "week", "finished"].includes(
+    candidate
+  )
+    ? (candidate as EsporteGamesTab)
+    : "upcoming";
+}
+
+export function getCompetitionBySportAndSeries(
+  sportSlug: EsporteSlug,
+  series: EsporteSeries
+): EsporteCompetition | null {
+  const sport = MOCK_SPORTS.find((s) => s.slug === sportSlug);
+  if (!sport) return null;
+  return (
+    MOCK_COMPETITIONS.find(
+      (competition) =>
+        competition.sportId === sport.id && competition.series === series
+    ) ?? null
+  );
 }
 
 export function getCompetitionById(id: string): EsporteCompetition | null {
@@ -87,6 +142,45 @@ export function getUpcomingGames(limit = 6): EsporteGameWithDetails[] {
 export function getRecentResults(limit = 6): EsporteGameWithDetails[] {
   return MOCK_GAMES.filter((g) => g.status === "finished")
     .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
+    .slice(0, limit)
+    .map(enrichGame)
+    .filter((g): g is EsporteGameWithDetails => g !== null);
+}
+
+export function getGamesByFilters({
+  sport,
+  series,
+  tab,
+  limit = 20,
+}: {
+  sport: EsporteSlug;
+  series: EsporteSeries;
+  tab: EsporteGamesTab;
+  limit?: number;
+}): EsporteGameWithDetails[] {
+  const competition = getCompetitionBySportAndSeries(sport, series);
+  if (!competition) return [];
+
+  const today = new Date("2026-06-23T12:00:00-03:00");
+  const tomorrow = addDays(today, 1);
+  const weekEnd = addDays(today, 7);
+
+  return MOCK_GAMES.filter((game) => game.competitionId === competition.id)
+    .filter((game) => {
+      const date = new Date(game.scheduledAt);
+
+      if (tab === "finished") return game.status === "finished";
+      if (game.status === "finished") return false;
+      if (tab === "today") return isSameDay(date, today);
+      if (tab === "tomorrow") return isSameDay(date, tomorrow);
+      if (tab === "week") return date >= today && date <= weekEnd;
+      return game.status === "scheduled" || game.status === "live";
+    })
+    .sort((a, b) => {
+      const aTime = new Date(a.scheduledAt).getTime();
+      const bTime = new Date(b.scheduledAt).getTime();
+      return tab === "finished" ? bTime - aTime : aTime - bTime;
+    })
     .slice(0, limit)
     .map(enrichGame)
     .filter((g): g is EsporteGameWithDetails => g !== null);
