@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { LogIn, LogOut, User, UserPlus } from "lucide-react";
+import { LogIn, LogOut, Trophy, User, UserPlus } from "lucide-react";
 import type { SessionPayload } from "@/lib/auth/session";
 import type { CurrencyMode } from "@/lib/currency/mode";
 import { CurrencyToggle } from "@/components/currency/CurrencyToggle";
@@ -39,6 +39,14 @@ export function AppHeader({
         </Link>
 
         <div className="flex items-center gap-2">
+          <Link
+            href="/esportes"
+            className="flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm font-bold text-zinc-300 transition-colors hover:border-[#1e3a5f] hover:text-white sm:px-4"
+          >
+            <Trophy className="h-4 w-4 text-[#c9a227]" />
+            <span className="hidden sm:inline">NDU Esportes</span>
+            <span className="sm:hidden">Esportes</span>
+          </Link>
           <div className="hidden lg:block">
             <CurrencyToggle
               mode={currencyMode}

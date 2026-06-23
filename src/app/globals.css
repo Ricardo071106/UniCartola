@@ -94,4 +94,13 @@ body {
   .accent-nav-mobile-active {
     color: var(--cartola-accent-light);
   }
+
+  .esportes-header {
+    background: linear-gradient(
+      135deg,
+      #000000 0%,
+      #0a1420 50%,
+      #1e3a5f 100%
+    );
+  }
 }
