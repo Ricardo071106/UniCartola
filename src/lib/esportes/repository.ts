@@ -67,9 +67,13 @@ export function getCompetitionDisplayName(competition: EsporteCompetition): stri
   return competition.name;
 }
 
-export function getSportDisplayName(sport: EsporteSport): string {
-  const gender = sport.gender === "masculino" ? "Masculino" : "Feminino";
-  return `${sport.name} ${gender}`;
+export function getSportDisplayName(sport: EsporteSport, series?: string): string {
+  const base = `${sport.name} Masculino`;
+  return series ? `${base} — Série ${series}` : base;
+}
+
+export function getCompetitionLabel(competition: EsporteCompetition, sport: EsporteSport): string {
+  return `${sport.name} Masculino · Série ${competition.series}`;
 }
 
 export function getUpcomingGames(limit = 6): EsporteGameWithDetails[] {

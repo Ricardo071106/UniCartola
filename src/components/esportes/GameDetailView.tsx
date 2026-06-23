@@ -3,6 +3,7 @@ import { ArrowLeft, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   formatGameDate,
+  getCompetitionLabel,
   getGameStatusLabel,
 } from "@/lib/esportes/repository";
 import type { EsporteGameWithDetails } from "@/lib/esportes/types";
@@ -63,7 +64,7 @@ export function GameDetailView({ game }: { game: EsporteGameWithDetails }) {
   const showScore = game.status === "finished" || game.status === "live";
   const homeWins = showScore && (game.homeScore ?? 0) > (game.awayScore ?? 0);
   const awayWins = showScore && (game.awayScore ?? 0) > (game.homeScore ?? 0);
-  const sportLabel = `${game.sport.name} ${game.sport.gender === "masculino" ? "Masculino" : "Feminino"}`;
+  const sportLabel = getCompetitionLabel(game.competition, game.sport);
 
   return (
     <div className="space-y-6">

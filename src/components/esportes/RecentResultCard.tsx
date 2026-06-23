@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getCompetitionLabel } from "@/lib/esportes/repository";
 import type { EsporteGameWithDetails } from "@/lib/esportes/types";
 
 function TeamInitials({ name, color }: { name: string; color: string }) {
@@ -13,7 +14,7 @@ function TeamInitials({ name, color }: { name: string; color: string }) {
 }
 
 export function RecentResultCard({ game }: { game: EsporteGameWithDetails }) {
-  const sportLabel = `${game.sport.name} ${game.sport.gender === "masculino" ? "Masculino" : "Feminino"}`;
+  const sportLabel = getCompetitionLabel(game.competition, game.sport);
   const homeWins = (game.homeScore ?? 0) > (game.awayScore ?? 0);
   const awayWins = (game.awayScore ?? 0) > (game.homeScore ?? 0);
 

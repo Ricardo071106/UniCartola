@@ -20,7 +20,6 @@ export interface EsporteSportRow {
   id: string;
   slug: string;
   name: string;
-  gender: "masculino" | "feminino";
   icon: string;
   created_at: string;
   updated_at: string;
@@ -30,6 +29,7 @@ export interface EsporteSportRow {
 export interface EsporteCompetitionRow {
   id: string;
   sport_id: string;
+  series: string;
   name: string;
   season: string;
   has_knockout: boolean;

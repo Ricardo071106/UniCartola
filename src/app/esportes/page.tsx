@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { UpcomingGameCard } from "@/components/esportes/UpcomingGameCard";
 import { RecentResultCard } from "@/components/esportes/RecentResultCard";
-import { CompetitionCard } from "@/components/esportes/CompetitionCard";
+import { CompetitionIconStrip } from "@/components/esportes/CompetitionIconStrip";
 import {
   getAllCompetitions,
+  getAllSports,
   getRecentResults,
-  getSportForCompetition,
   getUpcomingGames,
 } from "@/lib/esportes/repository";
 
@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 export default function EsportesHomePage() {
   const upcomingGames = getUpcomingGames(6);
   const recentResults = getRecentResults(6);
+  const sports = getAllSports();
   const competitions = getAllCompetitions();
 
   return (
@@ -29,6 +30,10 @@ export default function EsportesHomePage() {
         <p className="mt-1 text-sm text-zinc-500">
           Competições, resultados e classificações
         </p>
+
+        <div className="mt-5">
+          <CompetitionIconStrip sports={sports} competitions={competitions} />
+        </div>
       </section>
 
       <section>
@@ -65,25 +70,6 @@ export default function EsportesHomePage() {
             </p>
           </div>
         )}
-      </section>
-
-      <section>
-        <h2 className="mb-4 text-sm font-black uppercase tracking-widest text-[#c9a227]">
-          Competições
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {competitions.map((comp) => {
-            const sport = getSportForCompetition(comp.id);
-            if (!sport) return null;
-            return (
-              <CompetitionCard
-                key={comp.id}
-                competition={comp}
-                sport={sport}
-              />
-            );
-          })}
-        </div>
       </section>
     </div>
   );

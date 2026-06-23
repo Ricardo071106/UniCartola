@@ -1,21 +1,19 @@
 /** Status de um jogo na plataforma NDU Esportes */
 export type EsporteGameStatus = "scheduled" | "live" | "finished";
 
-/** Modalidades disponíveis */
-export type EsporteSlug =
-  | "futsal-masculino"
-  | "futsal-feminino"
-  | "basquete-masculino"
-  | "basquete-feminino"
-  | "volei-masculino"
-  | "volei-feminino";
+/** Modalidades disponíveis (masculino) */
+export type EsporteSlug = "futsal" | "futebol" | "basquete";
+
+/** Séries do campeonato NDU */
+export type EsporteSeries = "A" | "B" | "C" | "D" | "E" | "F";
+
+export const ESPORTE_SERIES: EsporteSeries[] = ["A", "B", "C", "D", "E", "F"];
 
 /** Esporte / modalidade */
 export interface EsporteSport {
   id: string;
   slug: EsporteSlug;
   name: string;
-  gender: "masculino" | "feminino";
   icon: string;
 }
 
@@ -23,6 +21,7 @@ export interface EsporteSport {
 export interface EsporteCompetition {
   id: string;
   sportId: string;
+  series: EsporteSeries;
   name: string;
   season: string;
   hasKnockout: boolean;

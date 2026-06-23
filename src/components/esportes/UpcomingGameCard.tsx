@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { formatGameDate } from "@/lib/esportes/repository";
+import { formatGameDate, getCompetitionLabel } from "@/lib/esportes/repository";
 import type { EsporteGameWithDetails } from "@/lib/esportes/types";
 
 function TeamInitials({ name, color }: { name: string; color: string }) {
@@ -16,7 +16,7 @@ function TeamInitials({ name, color }: { name: string; color: string }) {
 
 export function UpcomingGameCard({ game }: { game: EsporteGameWithDetails }) {
   const { date, time } = formatGameDate(game.scheduledAt);
-  const sportLabel = `${game.sport.name} ${game.sport.gender === "masculino" ? "Masculino" : "Feminino"}`;
+  const sportLabel = getCompetitionLabel(game.competition, game.sport);
 
   return (
     <Link
